@@ -1,0 +1,21 @@
+# Render Blueprint: deploy the routing agent dashboard as a Docker web service.
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: routing-agent
+    runtime: docker
+    plan: free            # upgrade to "standard" (2GB RAM) for Gemma 3 1B comfortably
+    healthCheckPath: /health
+    envVars:
+      - key: FIREWORKS_API_KEY
+        sync: false        # set in the Render dashboard, never committed
+      - key: PORT
+        value: "8000"
+      # Gemma 3 1B instruct, Q4_0 QAT GGUF (~700MB). Remove MODEL_URL to run
+      # remote-only on the free tier (512MB RAM cannot hold the model).
+      - key: MODEL_URL
+        value: "https://huggingface.co/google/gemma-3-1b-it-qat-q4_0-gguf/resolve/main/gemma-3-1b-it-q4_0.gguf"
+      - key: MODEL_PATH
+        value: "models/gemma-3-1b-it-q4_0.gguf"
+      - key: ROUTING_AGENT_CONFIG
+        value: "config.yaml"
