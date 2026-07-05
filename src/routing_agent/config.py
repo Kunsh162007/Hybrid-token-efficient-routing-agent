@@ -113,10 +113,28 @@ def load_config(path: str | Path | None = None) -> AppConfig:
 
 
 def get_api_key() -> str:
-    """Fetch the Fireworks API key from the environment; never from files."""
+    """Fetch the Fireworks API key from the environment (seeded from .env)."""
     key = os.environ.get(API_KEY_ENV_VAR, "").strip()
+    if not key:
+        _load_dotenv()
+        key = os.environ.get(API_KEY_ENV_VAR, "").strip()
     if not key:
         raise ConfigError(
             f"{API_KEY_ENV_VAR} is not set. Copy .env.example to .env or export it."
         )
     return key
+
+
+def _load_dotenv(path: str | Path = ".env") -> None:
+    """Tiny .env loader: KEY=value lines, no expansion, env always wins."""
+    env_file = Path(path)
+    if not env_file.exists():
+        return
+    for line in env_file.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        name, _, value = stripped.partition("=")
+        name = name.strip()
+        if name and name not in os.environ:
+            os.environ[name] = value.strip().strip("'\"")

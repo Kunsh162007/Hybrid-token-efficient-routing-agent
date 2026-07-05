@@ -54,8 +54,9 @@ def test_load_config_rejects_invalid_values(tmp_path):
         load_config(bad)
 
 
-def test_get_api_key_missing_raises(monkeypatch):
+def test_get_api_key_missing_raises(tmp_path, monkeypatch):
     monkeypatch.delenv("FIREWORKS_API_KEY", raising=False)
+    monkeypatch.chdir(tmp_path)  # isolate from any real .env in the repo root
     with pytest.raises(ConfigError, match="FIREWORKS_API_KEY"):
         get_api_key()
 
@@ -63,3 +64,21 @@ def test_get_api_key_missing_raises(monkeypatch):
 def test_get_api_key_reads_env(monkeypatch):
     monkeypatch.setenv("FIREWORKS_API_KEY", "fw_test123")
     assert get_api_key() == "fw_test123"
+
+
+def test_get_api_key_falls_back_to_dotenv(tmp_path, monkeypatch):
+    monkeypatch.delenv("FIREWORKS_API_KEY", raising=False)
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".env").write_text(
+        "# comment\nFIREWORKS_API_KEY='fw_from_file'\n", encoding="utf-8"
+    )
+
+    assert get_api_key() == "fw_from_file"
+
+
+def test_dotenv_never_overrides_real_env(tmp_path, monkeypatch):
+    monkeypatch.setenv("FIREWORKS_API_KEY", "fw_real")
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".env").write_text("FIREWORKS_API_KEY=fw_file\n", encoding="utf-8")
+
+    assert get_api_key() == "fw_real"
