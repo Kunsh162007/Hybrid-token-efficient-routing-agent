@@ -15,12 +15,15 @@ local:
 remote:
   base_url: "https://api.fireworks.ai/inference/v1"
   # Tiered escalation: cheap first, strong as last resort.
-  cheap_model: "accounts/fireworks/models/gemma-3-4b-it"
-  strong_model: "accounts/fireworks/models/llama-v3p1-70b-instruct"
-  judge_model: "accounts/fireworks/models/gemma-3-4b-it"
-  max_tokens_cheap: 256
-  max_tokens_strong: 512
-  max_tokens_judge: 4
+  # NOTE: placeholders from today's account catalog - swap in the model IDs
+  # revealed at kickoff. gpt-oss emits hidden reasoning tokens, hence the
+  # larger judge cap.
+  cheap_model: "accounts/fireworks/models/gpt-oss-120b"
+  strong_model: "accounts/fireworks/models/kimi-k2p5"
+  judge_model: "accounts/fireworks/models/gpt-oss-120b"
+  max_tokens_cheap: 400
+  max_tokens_strong: 600
+  max_tokens_judge: 96
   timeout_seconds: 60
   max_retries: 3
 
