@@ -28,7 +28,10 @@ remote:
   max_retries: 3
 
 ladder:
-  confidence_threshold: 0.72   # base logprob-confidence needed to ship a local answer
+  # Measured on Gemma 3 1B (2026-07-05): at 0.72 the 1B model ships everything
+  # rung-1 including wrong answers (67% acc, 0 tok); at 0.98 shaky answers
+  # escalate (75% acc, ~1k tok over 12 tasks). Re-sweep on launch-day tasks.
+  confidence_threshold: 0.98
   self_consistency_k: 5        # rung 3 sample count (includes rungs 1-2 answers)
   unanimous_ratio: 1.0         # vote ratio that ships without judge
   contested_ratio: 0.6         # vote ratio at/above which the remote judge arbitrates
