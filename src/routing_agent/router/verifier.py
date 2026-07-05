@@ -61,7 +61,10 @@ def verify(task_type: TaskType, prompt: str, answer: str) -> VerifyResult:
     elif task_type == TaskType.MCQ:
         if normalized not in {"A", "B", "C", "D", "E"}:
             return VerifyResult(ok=False, normalized=normalized, reason="no option letter")
-        offered = {letter.upper() for letter in re.findall(r"(?m)^\s*\(?([A-Ea-e])[).:]\s+", prompt)}
+        offered = {
+            letter.upper()
+            for letter in re.findall(r"(?m)^\s*\(?([A-Ea-e])[).:]\s+", prompt)
+        }
         if offered and normalized not in offered:
             return VerifyResult(
                 ok=False, normalized=normalized, reason="letter not among options"
@@ -94,7 +97,7 @@ def majority_vote(task_type: TaskType, answers: list[str]) -> tuple[str, float]:
         return answers[0], 1.0 / len(answers)
     winner_norm, winner_count = counts.most_common(1)[0]
     winner_raw = next(
-        raw for raw, norm in zip(answers, normalized) if norm == winner_norm
+        raw for raw, norm in zip(answers, normalized, strict=True) if norm == winner_norm
     )
     return winner_raw, winner_count / len(answers)
 

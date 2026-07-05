@@ -117,7 +117,7 @@ def test_run_eval_writes_training_log(tmp_path):
 
     run_eval(ladder, load_tasks(tasks_path), training_log_path=log_path)
 
-    records = [json.loads(l) for l in log_path.read_text().splitlines()]
+    records = [json.loads(line) for line in log_path.read_text().splitlines()]
     assert records == [{"prompt": "What is 2+2?", "task_type": "math", "label": 1}]
 
 

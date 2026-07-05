@@ -40,7 +40,7 @@ class LearnedRouter:
         self._model = model
 
     @classmethod
-    def train(cls, records: list[dict], *, min_records: int = 20) -> "LearnedRouter":
+    def train(cls, records: list[dict], *, min_records: int = 20) -> LearnedRouter:
         """Fit from harness records: [{'prompt': ..., 'label': 0|1}, ...]."""
         try:
             from sklearn.linear_model import LogisticRegression
@@ -62,7 +62,7 @@ class LearnedRouter:
         return cls(model)
 
     @classmethod
-    def train_from_log(cls, log_path: str | Path) -> "LearnedRouter":
+    def train_from_log(cls, log_path: str | Path) -> LearnedRouter:
         path = Path(log_path)
         if not path.exists():
             raise LearnedRouterUnavailable(f"No training log at {path}")
@@ -100,7 +100,7 @@ class LearnedRouter:
         joblib.dump(self._model, target)
 
     @classmethod
-    def load(cls, path: str | Path) -> "LearnedRouter":
+    def load(cls, path: str | Path) -> LearnedRouter:
         try:
             import joblib
         except ImportError as exc:

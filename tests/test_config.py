@@ -46,9 +46,11 @@ def test_load_config_rejects_non_mapping(tmp_path):
 
 
 def test_load_config_rejects_invalid_values(tmp_path):
+    from pydantic import ValidationError
+
     bad = tmp_path / "config.yaml"
     bad.write_text("ladder:\n  confidence_threshold: 5.0\n", encoding="utf-8")
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         load_config(bad)
 
 
