@@ -93,8 +93,12 @@ def _mean_logprob(choice: dict) -> float | None:
     values: list[float] = []
     for entry in content:
         value = entry.get("logprob") if isinstance(entry, dict) else entry
-        if isinstance(value, (int, float)) and math.isfinite(value):
-            values.append(float(value))
+        try:
+            number = float(value)  # accepts numpy float32 from llama.cpp
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(number):
+            values.append(number)
     if not values:
         return None
     return sum(values) / len(values)
