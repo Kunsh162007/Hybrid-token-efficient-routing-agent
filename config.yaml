@@ -1,0 +1,58 @@
+# Hybrid Token-Efficient Routing Agent configuration.
+# Everything launch-day-dependent (model IDs, thresholds) lives here.
+
+local:
+  enabled: true
+  # GGUF model path. Download example (Gemma 3 1B instruct, Q4_0 QAT):
+  #   huggingface-cli download google/gemma-3-1b-it-qat-q4_0-gguf gemma-3-1b-it-q4_0.gguf --local-dir models/
+  model_path: "models/gemma-3-1b-it-q4_0.gguf"
+  n_ctx: 4096
+  n_threads: 0            # 0 = auto
+  max_tokens: 512
+  temperature: 0.2
+  retry_temperature: 0.8  # rung 2 uses a hotter retry
+
+remote:
+  base_url: "https://api.fireworks.ai/inference/v1"
+  # Tiered escalation: cheap first, strong as last resort.
+  cheap_model: "accounts/fireworks/models/gemma-3-4b-it"
+  strong_model: "accounts/fireworks/models/llama-v3p1-70b-instruct"
+  judge_model: "accounts/fireworks/models/gemma-3-4b-it"
+  max_tokens_cheap: 256
+  max_tokens_strong: 512
+  max_tokens_judge: 4
+  timeout_seconds: 60
+  max_retries: 3
+
+ladder:
+  confidence_threshold: 0.72   # base logprob-confidence needed to ship a local answer
+  self_consistency_k: 5        # rung 3 sample count (includes rungs 1-2 answers)
+  unanimous_ratio: 1.0         # vote ratio that ships without judge
+  contested_ratio: 0.6         # vote ratio at/above which the remote judge arbitrates
+  skip_ahead_difficulty: 0.85  # rung 0 difficulty above this jumps straight to remote
+  per_task_token_budget: 2000  # hard cap on remote tokens per task
+  wall_clock_cap_seconds: 120  # practicality cap; latency is not scored
+  judge_enabled: true
+
+cache:
+  enabled: true
+  db_path: "data/cache.db"
+  semantic_threshold: 0.95
+  embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
+
+learned_router:
+  enabled: false               # flips to true once trained model beats heuristics
+  model_path: "data/router_model.joblib"
+  min_probability_local: 0.5
+  training_log_path: "data/training_records.jsonl"
+
+decomposer:
+  enabled: false               # kill-switch; enable per eval A/B results
+  max_subtasks: 4
+  max_depth: 1
+
+web:
+  host: "0.0.0.0"
+  port: 8000
+  demo_mode: false             # true = cap generation lengths for snappy demos
+  demo_max_tokens: 128

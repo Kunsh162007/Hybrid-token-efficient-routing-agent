@@ -1,0 +1,63 @@
+"""Config loading and validation tests."""
+
+import pytest
+
+from routing_agent.config import AppConfig, ConfigError, get_api_key, load_config
+
+
+def test_load_config_defaults_when_no_file(tmp_path, monkeypatch):
+    # Arrange: point default lookup at an empty directory
+    monkeypatch.chdir(tmp_path)
+
+    # Act
+    cfg = load_config()
+
+    # Assert
+    assert isinstance(cfg, AppConfig)
+    assert cfg.ladder.per_task_token_budget == 2000
+
+
+def test_load_config_reads_yaml_overrides(tmp_path):
+    # Arrange
+    cfg_file = tmp_path / "config.yaml"
+    cfg_file.write_text(
+        "ladder:\n  per_task_token_budget: 500\nremote:\n  base_url: 'https://x.test/v1/'\n",
+        encoding="utf-8",
+    )
+
+    # Act
+    cfg = load_config(cfg_file)
+
+    # Assert
+    assert cfg.ladder.per_task_token_budget == 500
+    assert cfg.remote.base_url == "https://x.test/v1"  # trailing slash stripped
+
+
+def test_load_config_explicit_missing_path_raises(tmp_path):
+    with pytest.raises(ConfigError, match="not found"):
+        load_config(tmp_path / "nope.yaml")
+
+
+def test_load_config_rejects_non_mapping(tmp_path):
+    bad = tmp_path / "config.yaml"
+    bad.write_text("- just\n- a list\n", encoding="utf-8")
+    with pytest.raises(ConfigError, match="mapping"):
+        load_config(bad)
+
+
+def test_load_config_rejects_invalid_values(tmp_path):
+    bad = tmp_path / "config.yaml"
+    bad.write_text("ladder:\n  confidence_threshold: 5.0\n", encoding="utf-8")
+    with pytest.raises(Exception):
+        load_config(bad)
+
+
+def test_get_api_key_missing_raises(monkeypatch):
+    monkeypatch.delenv("FIREWORKS_API_KEY", raising=False)
+    with pytest.raises(ConfigError, match="FIREWORKS_API_KEY"):
+        get_api_key()
+
+
+def test_get_api_key_reads_env(monkeypatch):
+    monkeypatch.setenv("FIREWORKS_API_KEY", "fw_test123")
+    assert get_api_key() == "fw_test123"
