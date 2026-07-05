@@ -234,6 +234,8 @@ class EscalationLadder:
         started: float,
     ) -> TaskResult | None:
         """Rung 4: remote verifies the local winner for ~1 output token."""
+        if self._remote is None:
+            return None
         self._budget.check_remaining(_JUDGE_ESTIMATED_TOKENS)
         try:
             verdict, judge_result = self._remote.judge(
@@ -268,6 +270,12 @@ class EscalationLadder:
         trace: list[RungTrace],
         started: float,
     ) -> TaskResult:
+        if self._remote is None:
+            trace.append(
+                RungTrace(Rung.REMOTE_CHEAP, "no-remote", "running without a remote client")
+            )
+            return self._settle_for_best(prompt, cls, candidates, trace, started)
+
         if candidates:
             # Reaching a paid generation rung means local failed this task type.
             self._thresholds.update(cls.task_type, False)

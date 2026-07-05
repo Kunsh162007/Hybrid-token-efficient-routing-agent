@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Routing Agent — Escalation Ladder</title>
+<style>
+  :root {
+    --bg: #0c0f14; --panel: #12161e; --panel-2: #171c26; --line: #232a38;
+    --text: #dbe2ee; --dim: #7b879c; --free: #3ddc84; --paid: #ffb454;
+    --hot: #ff6b6b; --accent: #6aa7ff; --mono: "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text); font-family: var(--mono);
+    min-height: 100vh; padding: 2rem clamp(1rem, 4vw, 3rem);
+  }
+  header { display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.75rem; }
+  h1 { font-size: clamp(1.1rem, 2.5vw, 1.5rem); font-weight: 600; letter-spacing: .02em; }
+  h1 .free-tag { color: var(--free); }
+  .sub { color: var(--dim); font-size: .8rem; }
+  .grid { display: grid; grid-template-columns: minmax(320px, 1.1fr) minmax(300px, .9fr); gap: 1.25rem; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 1.25rem; }
+  .panel h2 { font-size: .75rem; text-transform: uppercase; letter-spacing: .14em; color: var(--dim); margin-bottom: .9rem; }
+  textarea {
+    width: 100%; min-height: 110px; background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: 8px; padding: .8rem; font: inherit; resize: vertical;
+  }
+  textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .row { display: flex; gap: .75rem; align-items: center; margin-top: .8rem; flex-wrap: wrap; }
+  button {
+    background: var(--accent); color: #0a0e14; font: inherit; font-weight: 700;
+    border: 0; border-radius: 8px; padding: .65rem 1.4rem; cursor: pointer; transition: transform .1s ease, opacity .2s;
+  }
+  button:hover { transform: translateY(-1px); }
+  button:disabled { opacity: .45; cursor: wait; transform: none; }
+  .samples { display: flex; gap: .5rem; flex-wrap: wrap; }
+  .samples a { color: var(--dim); font-size: .72rem; border: 1px dashed var(--line); border-radius: 6px; padding: .25rem .55rem; cursor: pointer; }
+  .samples a:hover { color: var(--text); border-color: var(--accent); }
+  .ladder { list-style: none; display: flex; flex-direction: column-reverse; gap: .45rem; }
+  .rung {
+    display: grid; grid-template-columns: 2.2rem 1fr auto; align-items: center; gap: .8rem;
+    padding: .55rem .8rem; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--panel-2); color: var(--dim); transition: all .25s ease; font-size: .8rem;
+  }
+  .rung .num { font-weight: 700; }
+  .rung .cost { font-size: .68rem; }
+  .rung.visited { color: var(--text); border-color: #3a475e; }
+  .rung.exit-free { border-color: var(--free); box-shadow: 0 0 0 1px var(--free), 0 0 18px rgba(61,220,132,.25); color: var(--free); }
+  .rung.exit-paid { border-color: var(--paid); box-shadow: 0 0 0 1px var(--paid), 0 0 18px rgba(255,180,84,.25); color: var(--paid); }
+  .answerbox { margin-top: 1rem; background: var(--panel-2); border-left: 3px solid var(--free); border-radius: 6px; padding: .9rem; white-space: pre-wrap; font-size: .9rem; display: none; }
+  .answerbox.paid { border-left-color: var(--paid); }
+  .meta { margin-top: .5rem; color: var(--dim); font-size: .72rem; display: none; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: .8rem; }
+  .stat { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: .8rem; }
+  .stat .value { font-size: 1.5rem; font-weight: 700; }
+  .stat .value.free { color: var(--free); }
+  .stat .value.paid { color: var(--paid); }
+  .stat .label { color: var(--dim); font-size: .68rem; margin-top: .25rem; letter-spacing: .05em; }
+  .trace { margin-top: 1rem; font-size: .72rem; color: var(--dim); max-height: 220px; overflow-y: auto; display: none; }
+  .trace div { padding: .2rem 0; border-bottom: 1px dashed var(--line); }
+  .trace .tok { color: var(--paid); }
+  footer { margin-top: 2rem; color: var(--dim); font-size: .7rem; }
+  .err { color: var(--hot); margin-top: .6rem; font-size: .78rem; display: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>▲ Escalation Ladder <span class="free-tag">// local first, tokens last</span></h1>
+  <span class="sub" id="mode">checking backend…</span>
+</header>
+
+<div class="grid">
+  <section class="panel">
+    <h2>Task input</h2>
+    <textarea id="prompt" placeholder="Paste a task… e.g. What is 128 * 46?"></textarea>
+    <div class="row">
+      <button id="go">Route it</button>
+      <div class="samples">
+        <a data-q="What is 128 * 46?">math</a>
+        <a data-q="Which of these is a prime number?&#10;A) 21&#10;B) 17&#10;C) 27&#10;D) 33">mcq</a>
+        <a data-q="What is the capital of Japan?">qa</a>
+        <a data-q="Write a Python function named add that returns the sum of two arguments.">code</a>
+      </div>
+    </div>
+    <div class="err" id="err"></div>
+    <div class="answerbox" id="answer"></div>
+    <div class="meta" id="meta"></div>
+    <div class="trace" id="trace"></div>
+  </section>
+
+  <section class="panel">
+    <h2>The ladder — exit low, pay nothing</h2>
+    <ul class="ladder" id="ladder">
+      <li class="rung" data-rung="0"><span class="num">0</span><span>classify + cache check</span><span class="cost">free</span></li>
+      <li class="rung" data-rung="1"><span class="num">1</span><span>local attempt + verify</span><span class="cost">free</span></li>
+      <li class="rung" data-rung="2"><span class="num">2</span><span>local retry (reworded)</span><span class="cost">free</span></li>
+      <li class="rung" data-rung="3"><span class="num">3</span><span>self-consistency vote</span><span class="cost">free</span></li>
+      <li class="rung" data-rung="4"><span class="num">4</span><span>remote judge (1 token)</span><span class="cost">~paid</span></li>
+      <li class="rung" data-rung="5"><span class="num">5</span><span>cheap remote model</span><span class="cost">paid</span></li>
+      <li class="rung" data-rung="6"><span class="num">6</span><span>strong remote model</span><span class="cost">paid++</span></li>
+    </ul>
+
+    <h2 style="margin-top:1.4rem">Run totals</h2>
+    <div class="stats">
+      <div class="stat"><div class="value" id="s-tasks">0</div><div class="label">TASKS</div></div>
+      <div class="stat"><div class="value paid" id="s-remote">0</div><div class="label">REMOTE TOKENS</div></div>
+      <div class="stat"><div class="value free" id="s-free">–</div><div class="label">FREE TASKS</div></div>
+      <div class="stat"><div class="value free" id="s-local">0</div><div class="label">LOCAL TOKENS (0 COST)</div></div>
+      <div class="stat"><div class="value" id="s-cache">0</div><div class="label">CACHE HITS</div></div>
+    </div>
+  </section>
+</div>
+
+<footer>Hybrid Token-Efficient Routing Agent · Gemma (local, free) + Fireworks AI (remote, scored) · AMD Developer Hackathon ACT II</footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const rungs = [...document.querySelectorAll(".rung")];
+
+async function refreshStats() {
+  try {
+    const s = await (await fetch("/api/stats")).json();
+    $("s-tasks").textContent = s.tasks_completed;
+    $("s-remote").textContent = s.remote_tokens_spent.toLocaleString();
+    $("s-free").textContent = s.tasks_completed ? Math.round(s.free_task_ratio * 100) + "%" : "–";
+    $("s-local").textContent = s.local_tokens_used.toLocaleString();
+    $("s-cache").textContent = s.cache_hits;
+    $("mode").textContent = `local model: ${s.local_model ? "ON" : "off"} · remote: ${s.remote ? "ON" : "off"}`;
+  } catch { $("mode").textContent = "backend unreachable"; }
+}
+
+function paintLadder(visited, exitRung, paid) {
+  rungs.forEach(r => r.className = "rung");
+  visited.forEach(n => { const el = rungs.find(r => +r.dataset.rung === n); if (el) el.classList.add("visited"); });
+  const exitEl = rungs.find(r => +r.dataset.rung === exitRung);
+  if (exitEl) exitEl.classList.add(paid ? "exit-paid" : "exit-free");
+}
+
+async function route() {
+  const prompt = $("prompt").value.trim();
+  if (!prompt) return;
+  $("go").disabled = true; $("err").style.display = "none";
+  $("answer").style.display = "none"; $("meta").style.display = "none"; $("trace").style.display = "none";
+  rungs.forEach(r => r.className = "rung");
+  try {
+    const res = await fetch("/api/route", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({prompt}),
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+    const d = await res.json();
+    paintLadder(d.trace.map(t => t.rung_number), d.exit_rung_number, d.remote_tokens > 0);
+    const box = $("answer");
+    box.textContent = d.answer || "(no answer)";
+    box.className = "answerbox" + (d.remote_tokens > 0 ? " paid" : "");
+    box.style.display = "block";
+    $("meta").textContent =
+      `exit: ${d.exit_rung} · remote tokens: ${d.remote_tokens} · confidence: ${d.confidence}` +
+      ` · verified: ${d.verified}${d.cached ? " · CACHE HIT" : ""} · ${d.elapsed_seconds}s`;
+    $("meta").style.display = "block";
+    const tr = $("trace");
+    tr.innerHTML = d.trace.map(t =>
+      `<div>[${t.rung_number}] ${t.action} ${t.detail}` +
+      (t.remote_tokens ? ` <span class="tok">+${t.remote_tokens} tok</span>` : "") + `</div>`
+    ).join("");
+    tr.style.display = "block";
+    refreshStats();
+  } catch (e) {
+    $("err").textContent = "✗ " + e.message; $("err").style.display = "block";
+  } finally { $("go").disabled = false; }
+}
+
+$("go").addEventListener("click", route);
+$("prompt").addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) route(); });
+document.querySelectorAll(".samples a").forEach(a =>
+  a.addEventListener("click", () => { $("prompt").value = a.dataset.q.replace(/\n/g, "\n"); }));
+refreshStats();
+setInterval(refreshStats, 15000);
+</script>
+</body>
+</html>
