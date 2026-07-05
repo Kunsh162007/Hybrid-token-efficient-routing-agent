@@ -1,0 +1,12 @@
+{"id": "math-1", "prompt": "What is 128 * 46?", "expected": "5888", "task_type": "math"}
+{"id": "math-2", "prompt": "A shop sells pens at 12 rupees each. How much do 7 pens cost?", "expected": "84", "task_type": "math"}
+{"id": "math-3", "prompt": "Calculate the average of 10, 20, and 30.", "expected": "20", "task_type": "math"}
+{"id": "mcq-1", "prompt": "Which of these is a prime number?\nA) 21\nB) 17\nC) 27\nD) 33", "expected": "B", "task_type": "mcq"}
+{"id": "mcq-2", "prompt": "What is the chemical symbol for gold?\nA) Ag\nB) Fe\nC) Au\nD) Gd", "expected": "C", "task_type": "mcq"}
+{"id": "qa-1", "prompt": "What is the capital of Japan?", "expected": "tokyo", "task_type": "qa"}
+{"id": "qa-2", "prompt": "Which planet is known as the Red Planet?", "expected": "mars", "task_type": "qa"}
+{"id": "extract-1", "prompt": "Extract all years from the following text: The company was founded in 1998, went public in 2004, and was acquired in 2015.", "expected": "1998 2004 2015", "task_type": "extraction"}
+{"id": "code-1", "prompt": "Write a Python function named add that returns the sum of two arguments.", "expected": "def add(a, b):\n    return a + b", "task_type": "code"}
+{"id": "summary-1", "prompt": "Summarize in one sentence: Photosynthesis is the process by which green plants use sunlight to synthesize food from carbon dioxide and water, producing oxygen as a byproduct.", "expected": "plants use sunlight", "task_type": "summary"}
+{"id": "qa-3", "prompt": "How many continents are there on Earth?", "expected": "7", "task_type": "math"}
+{"id": "general-1", "prompt": "Translate the word 'hello' to French.", "expected": "bonjour", "task_type": "general"}
