@@ -9,6 +9,15 @@ local:
   n_ctx: 4096
   n_threads: 0            # 0 = auto
   max_tokens: 512
+  # Short-answer types get tight caps so generations finish fast; math keeps
+  # room for chain-of-thought (local tokens are free, but time is not).
+  max_tokens_by_type:
+    qa: 96
+    mcq: 96
+    extraction: 160
+    summary: 192
+    math: 288
+    general: 192
   temperature: 0.2
   retry_temperature: 0.8  # rung 2 uses a hotter retry
 
@@ -33,6 +42,7 @@ ladder:
   # escalate (75% acc, ~1k tok over 12 tasks). Re-sweep on launch-day tasks.
   confidence_threshold: 0.98
   self_consistency_k: 5        # rung 3 sample count (includes rungs 1-2 answers)
+  early_consensus_quorum: 3    # unanimous after N samples -> stop sampling
   unanimous_ratio: 1.0         # vote ratio that ships without judge
   contested_ratio: 0.6         # vote ratio at/above which the remote judge arbitrates
   skip_ahead_difficulty: 0.85  # rung 0 difficulty above this jumps straight to remote

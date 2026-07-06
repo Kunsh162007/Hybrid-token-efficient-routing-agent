@@ -37,7 +37,8 @@ def test_confident_local_answer_exits_rung_1_free():
 
 
 def test_unconfident_but_unanimous_vote_ships_free_at_rung_3():
-    # Confidence ~0.14 is below threshold, but all 5 samples agree.
+    # Confidence ~0.14 is below threshold, but samples agree unanimously:
+    # the early-consensus quorum (3) stops sampling before k (5).
     local = FakeLocalClient(answers=["Answer: 4"], logprob_mean=-2.0)
     remote = FakeRemoteClient()
 
@@ -45,8 +46,42 @@ def test_unconfident_but_unanimous_vote_ships_free_at_rung_3():
 
     assert result.exit_rung == Rung.SELF_CONSISTENCY
     assert result.remote_tokens == 0
-    assert len(local.calls) == 5  # k samples
+    assert len(local.calls) == 3  # quorum, not k
     assert remote.calls == []
+    assert any(t.action == "early-consensus" for t in result.trace)
+
+
+def test_dissent_disables_early_consensus_and_samples_to_k():
+    # One dissenting answer forces the full k samples; 4/5 agreement is
+    # contested-not-unanimous, so the winner goes to the remote judge.
+    local = FakeLocalClient(
+        answers=["Answer: 4", "Answer: 5", "Answer: 4", "Answer: 4", "Answer: 4"],
+        logprob_mean=-2.0,
+    )
+    remote = FakeRemoteClient(judge_verdict=True)
+
+    result = make_ladder(local, remote).route(MATH_PROMPT)
+
+    assert len(local.calls) == 5  # dissent at sample 2 -> full k
+    assert result.exit_rung == Rung.REMOTE_JUDGE
+    assert result.remote_tokens == 31  # judge only, no full generation
+    assert "4" in result.answer
+
+
+def test_per_type_max_tokens_cap_is_used():
+    local = FakeLocalClient(answers=["Answer: Tokyo"], logprob_mean=-0.05)
+    ladder = EscalationLadder(
+        LadderConfig(),
+        LocalModelConfig(max_tokens=512, max_tokens_by_type={"qa": 96}),
+        RemoteModelConfig(),
+        local,
+        FakeRemoteClient(),
+        BudgetTracker(per_task_budget=2000),
+    )
+
+    ladder.route("What is the capital of Japan?")
+
+    assert local.calls[0]["max_tokens"] == 96
 
 
 def test_contested_vote_goes_to_judge_and_ships_on_yes():

@@ -42,7 +42,9 @@ _LOCAL_INSTRUCTIONS: dict[TaskType, str] = {
     TaskType.QA: "Reply with only the answer. End with 'Answer: <answer>'.",
     TaskType.GENERAL: "Reply concisely with only what was asked.",
 }
-_RETRY_PREFIX = "Read the task again carefully, then solve it.\n\n"
+# Appended (not prepended) so rungs 1-3 share an identical prompt prefix and
+# llama.cpp reuses the KV cache instead of reprocessing the whole prompt.
+_RETRY_SUFFIX = "\n\nRe-read the task carefully before answering."
 _DRAFT_HINT_MAX_CHARS = 200
 _JUDGE_ESTIMATED_TOKENS = 150  # conservative pre-flight estimate for budget check
 
@@ -174,7 +176,7 @@ class EscalationLadder:
 
         # Rung 2: reworded, hotter retry.
         candidate = self._local_attempt(
-            _RETRY_PREFIX + local_prompt, cls, trace, Rung.LOCAL_RETRY,
+            local_prompt + _RETRY_SUFFIX, cls, trace, Rung.LOCAL_RETRY,
             temperature=self._local_cfg.retry_temperature,
         )
         if candidate is not None:
@@ -189,7 +191,22 @@ class EscalationLadder:
             return self._settle_for_best(prompt, cls, candidates, trace, started)
 
         # Rung 3: self-consistency - sample up to k answers, majority vote.
+        # Early exit: a unanimous quorum needs no more evidence; any dissent
+        # disables the shortcut and the full k-sample vote decides.
         while len(candidates) < self._cfg.self_consistency_k:
+            winner = self._unanimous_quorum(candidates)
+            if winner is not None:
+                trace.append(
+                    RungTrace(
+                        Rung.SELF_CONSISTENCY, "early-consensus",
+                        f"unanimous after {len(candidates)} samples",
+                    )
+                )
+                self._thresholds.update(cls.task_type, True)
+                return self._finish(
+                    prompt, winner, Rung.SELF_CONSISTENCY, 1.0,
+                    cls, trace, started, verified=True,
+                )
             if self._out_of_time(started):
                 break
             candidate = self._local_attempt(
@@ -350,7 +367,9 @@ class EscalationLadder:
             result: GenerationResult = self._local.generate(
                 local_prompt,
                 temperature=temperature,
-                max_tokens=self._local_cfg.max_tokens,
+                max_tokens=self._local_cfg.max_tokens_by_type.get(
+                    str(cls.task_type), self._local_cfg.max_tokens
+                ),
             )
         except GenerationError as exc:
             trace.append(RungTrace(rung, "local-error", str(exc)))
@@ -382,6 +401,16 @@ class EscalationLadder:
             f"A draft answer (may be wrong): {best.normalized}\n"
             "If the draft is correct, repeat it; otherwise give the correct answer."
         )
+
+    def _unanimous_quorum(self, candidates: list[_Candidate]) -> str | None:
+        """Winner text when >= quorum verified answers agree with no dissent."""
+        verified = [c for c in candidates if c.verified and c.normalized]
+        if len(verified) < self._cfg.early_consensus_quorum:
+            return None
+        distinct = {c.normalized for c in verified}
+        if len(distinct) != 1:
+            return None
+        return verified[0].text
 
     @staticmethod
     def _best_candidate(candidates: list[_Candidate]) -> _Candidate | None:

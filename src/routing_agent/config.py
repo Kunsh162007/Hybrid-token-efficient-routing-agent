@@ -23,6 +23,9 @@ class LocalModelConfig(BaseModel):
     n_ctx: int = Field(default=4096, ge=512)
     n_threads: int = Field(default=0, ge=0)
     max_tokens: int = Field(default=512, ge=1)
+    # Optional per-task-type caps (keys are TaskType values, e.g. "qa": 96).
+    # Short-answer types finish sooner; unlisted types use max_tokens.
+    max_tokens_by_type: dict[str, int] = Field(default_factory=dict)
     temperature: float = Field(default=0.2, ge=0.0, le=2.0)
     retry_temperature: float = Field(default=0.8, ge=0.0, le=2.0)
 
@@ -47,6 +50,9 @@ class RemoteModelConfig(BaseModel):
 class LadderConfig(BaseModel):
     confidence_threshold: float = Field(default=0.72, ge=0.0, le=1.0)
     self_consistency_k: int = Field(default=5, ge=1)
+    # Stop sampling early once this many verified answers agree with zero
+    # dissent; any disagreement falls back to the full k-sample vote.
+    early_consensus_quorum: int = Field(default=3, ge=2)
     unanimous_ratio: float = Field(default=1.0, ge=0.5, le=1.0)
     contested_ratio: float = Field(default=0.6, ge=0.0, le=1.0)
     skip_ahead_difficulty: float = Field(default=0.85, ge=0.0, le=1.0)
