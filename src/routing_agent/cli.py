@@ -119,6 +119,12 @@ def _cmd_eval(args) -> int:
         runtime.ladder, load_tasks(args.tasks), training_log_path=args.train_log
     )
     print(report.summary())
+    failures = [row for row in report.rows if not row.correct]
+    if failures:
+        print("failed tasks:")
+        for row in failures:
+            answer_preview = " ".join(row.answer.split())[:70]
+            print(f"  {row.task_id} [{row.exit_rung.name}]: {answer_preview!r}")
     return 0
 
 

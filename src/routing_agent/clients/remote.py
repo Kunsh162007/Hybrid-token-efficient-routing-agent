@@ -65,6 +65,8 @@ class FireworksClient:
             "max_tokens": max_tokens or self._config.max_tokens_cheap,
             "temperature": temperature if temperature is not None else 0.0,
         }
+        for key, value in self._config.extra_params.items():
+            payload.setdefault(key, value)
         data = self._post_with_retries(payload)
         try:
             text = (data["choices"][0]["message"]["content"] or "").strip()

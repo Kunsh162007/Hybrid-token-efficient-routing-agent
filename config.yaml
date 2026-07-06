@@ -35,6 +35,10 @@ remote:
   max_tokens_judge: 96
   timeout_seconds: 60
   max_retries: 3
+  # gpt-oss burns hidden reasoning tokens on every call; low effort keeps
+  # verdicts and short answers cheap. Harmless for models that ignore it.
+  extra_params:
+    reasoning_effort: "low"
 
 ladder:
   # Measured on Gemma 3 1B (2026-07-05): at 0.72 the 1B model ships everything

@@ -40,6 +40,9 @@ class RemoteModelConfig(BaseModel):
     max_tokens_judge: int = Field(default=4, ge=1)
     timeout_seconds: float = Field(default=60.0, gt=0)
     max_retries: int = Field(default=3, ge=0)
+    # Provider-specific request fields merged into every payload, e.g.
+    # {"reasoning_effort": "low"} to stop gpt-oss burning hidden tokens.
+    extra_params: dict = Field(default_factory=dict)
 
     @field_validator("base_url")
     @classmethod

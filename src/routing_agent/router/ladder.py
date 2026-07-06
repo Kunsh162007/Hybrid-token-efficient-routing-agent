@@ -23,6 +23,7 @@ from routing_agent.router import classifier as classifier_module
 from routing_agent.router.adaptive import AdaptiveThresholds
 from routing_agent.router.compression import compress_prompt
 from routing_agent.router.confidence import logprob_to_confidence
+from routing_agent.router.toolsolve import try_solve_math
 from routing_agent.router.verifier import majority_vote, verify
 from routing_agent.types import (
     Classification,
@@ -131,6 +132,17 @@ class EscalationLadder:
     ) -> TaskResult:
         candidates: list[_Candidate] = []
         threshold = self._thresholds.get(cls.task_type)
+
+        # Rung 0.5: explicit arithmetic is solved exactly by Python - the one
+        # answer source that is both free AND certain.
+        if cls.task_type == TaskType.MATH:
+            solved = try_solve_math(prompt)
+            if solved is not None:
+                trace.append(RungTrace(Rung.CLASSIFY, "tool-solved", solved))
+                return self._finish(
+                    prompt, solved, Rung.CLASSIFY, 0.99, cls, trace, started,
+                    verified=True,
+                )
 
         try:
             skip_local = (
