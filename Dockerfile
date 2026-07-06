@@ -16,6 +16,13 @@ WORKDIR /app
 COPY pyproject.toml README.md ./
 COPY src ./src
 
+# Portable llama.cpp build: GGML_NATIVE=OFF so the binary runs on any x86-64
+# host (build machine != runtime machine on PaaS builders), and capped
+# parallelism so the compile is not OOM-killed on small build machines.
+ENV FORCE_CMAKE=1 \
+    CMAKE_ARGS="-DGGML_NATIVE=OFF" \
+    CMAKE_BUILD_PARALLEL_LEVEL=4
+
 # Full install: local inference + semantic cache + learned router + web.
 RUN pip install ".[all]"
 
