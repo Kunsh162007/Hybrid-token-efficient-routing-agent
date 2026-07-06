@@ -1,3 +1,13 @@
+---
+title: Hybrid Token-Efficient Routing Agent
+emoji: 🪜
+colorFrom: green
+colorTo: yellow
+sdk: docker
+app_port: 8000
+pinned: false
+---
+
 # Hybrid Token-Efficient Routing Agent
 
 **AMD Developer Hackathon: ACT II — Track 1.** An agent that completes tasks

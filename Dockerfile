@@ -22,7 +22,9 @@ RUN pip install ".[all]"
 COPY config.yaml ./
 COPY tasks ./tasks
 COPY scripts/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh && mkdir -p models data
+# World-writable model/data dirs: HF Spaces (and other PaaS) run as non-root.
+RUN chmod +x /entrypoint.sh && mkdir -p models data && chmod -R 777 models data
+ENV HOME=/tmp
 
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=120s \

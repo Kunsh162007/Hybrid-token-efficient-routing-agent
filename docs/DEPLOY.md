@@ -1,6 +1,37 @@
+# Deployment
+
+Two supported free targets:
+
+| | Hugging Face Spaces (free) | Render (free) |
+|---|---|---|
+| RAM | 16GB — **local Gemma fits**, full ladder | 512MB — remote-only |
+| Sleep | after ~48h inactivity | after ~15 min inactivity |
+| Best for | the real demo (free rungs visible) | always-on health URL |
+
+## Hugging Face Spaces (recommended — runs the complete project)
+
+1. Create an account at huggingface.co, then **New Space** → SDK: **Docker** →
+   Blank template → CPU basic (free) → public.
+2. The repo's `README.md` front matter and `Dockerfile` are already
+   Space-compatible (`app_port: 8000`, non-root-writable dirs).
+3. Push this repo to the Space (add it as a second git remote):
+
+   ```bash
+   git remote add space https://huggingface.co/spaces/<username>/<space-name>
+   git push space main
+   ```
+
+   Authenticate with a **write** token from hf.co/settings/tokens.
+4. In the Space → Settings:
+   - **Secret** `FIREWORKS_API_KEY` = your key
+   - **Variable** `MODEL_URL` = `https://huggingface.co/ggml-org/gemma-3-1b-it-GGUF/resolve/main/gemma-3-1b-it-Q4_K_M.gguf`
+5. First build ~10-15 min (llama.cpp compiles) + model download at start.
+   `/health` should show `"local_model": true`.
+
 # Deploying to Render
 
 The repo ships a `render.yaml` Blueprint, so deployment is mostly clicking.
+Free tier is remote-only (no RAM for the local model).
 
 ## One-time setup
 
