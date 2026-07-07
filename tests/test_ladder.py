@@ -133,6 +133,44 @@ def test_code_ships_locally_when_no_remote_available():
     assert result.was_free
 
 
+def test_time_pressure_judges_math_instead_of_settling(monkeypatch):
+    # When the wall clock expires mid-ladder, a judge-required type must get
+    # a 1-token verdict on its best candidate, not ship it unjudged.
+    from routing_agent.router import ladder as ladder_module
+
+    class FakeTime:
+        def __init__(self):
+            self.now = 0.0
+
+        def monotonic(self):
+            self.now += 10.0  # every clock read advances 10s
+            return self.now
+
+    monkeypatch.setattr(ladder_module, "time", FakeTime())
+    local = FakeLocalClient(answers=["Answer: 21"], logprob_mean=-2.0)
+    remote = FakeRemoteClient(judge_verdict=True)
+
+    result = make_ladder(local, remote).route(
+        "I buy 7 apples at 3 dollars each and pay 50. How much change?",
+        time_cap_seconds=15,
+    )
+
+    assert result.exit_rung == Rung.REMOTE_JUDGE
+    assert len(remote.judge_calls) == 1
+
+
+def test_tiny_time_cap_skips_local_entirely():
+    # A cap too small for even one local generation goes straight to remote.
+    local = FakeLocalClient(answers=["Answer: 4"])
+    remote = FakeRemoteClient(answer="4")
+
+    result = make_ladder(local, remote).route(MATH_PROMPT, time_cap_seconds=3)
+
+    assert local.calls == []
+    assert result.exit_rung == Rung.REMOTE_CHEAP
+    assert any("time cap" in t.detail for t in result.trace)
+
+
 def test_per_type_max_tokens_cap_is_used():
     local = FakeLocalClient(answers=["Answer: Tokyo"], logprob_mean=-0.05)
     ladder = EscalationLadder(

@@ -67,6 +67,8 @@ _JUDGE_ESTIMATED_TOKENS = 150  # conservative pre-flight estimate for budget che
 # with itself is not evidence (dry-run 2026-07-07: it unanimously returned
 # wrong change on a money word problem and the buggy code unchanged).
 _JUDGE_REQUIRED_TYPES = frozenset({TaskType.MATH, TaskType.CODE, TaskType.LOGIC})
+# A local attempt below this time cap cannot finish on a slow CPU; go remote.
+_MIN_LOCAL_ATTEMPT_SECONDS = 8.0
 
 
 class _Candidate:
@@ -177,11 +179,21 @@ class EscalationLadder:
                 )
 
         try:
+            too_little_time = (
+                time_cap < _MIN_LOCAL_ATTEMPT_SECONDS and self._remote is not None
+            )
             skip_local = (
-                self._local is None or cls.difficulty >= self._cfg.skip_ahead_difficulty
+                self._local is None
+                or cls.difficulty >= self._cfg.skip_ahead_difficulty
+                or too_little_time
             )
             if skip_local:
-                reason = "no local model" if self._local is None else "difficulty skip-ahead"
+                if self._local is None:
+                    reason = "no local model"
+                elif too_little_time:
+                    reason = f"time cap {time_cap:.0f}s below local minimum"
+                else:
+                    reason = "difficulty skip-ahead"
                 trace.append(RungTrace(Rung.CLASSIFY, "skip-local", reason))
             else:
                 result = self._try_local_rungs(
@@ -221,7 +233,9 @@ class EscalationLadder:
                 if result is not None:
                     return result
         if self._out_of_time(started, time_cap):
-            return self._settle_for_best(prompt, cls, candidates, trace, started)
+            return self._time_pressure_exit(
+                prompt, cls, candidates, trace, started, rejected
+            )
 
         # Rung 2: reworded, hotter retry.
         candidate = self._local_attempt(
@@ -237,7 +251,9 @@ class EscalationLadder:
                 if result is not None:
                     return result
         if self._out_of_time(started, time_cap):
-            return self._settle_for_best(prompt, cls, candidates, trace, started)
+            return self._time_pressure_exit(
+                prompt, cls, candidates, trace, started, rejected
+            )
 
         # Rung 3: self-consistency - sample up to k answers, majority vote.
         # Early exit: a unanimous quorum needs no more evidence; any dissent
@@ -300,6 +316,37 @@ class EscalationLadder:
                 if result is not None:
                     return result
         return None
+
+    def _time_pressure_exit(
+        self,
+        prompt: str,
+        cls: Classification,
+        candidates: list[_Candidate],
+        trace: list[RungTrace],
+        started: float,
+        rejected: set[str],
+    ) -> TaskResult | None:
+        """Out of local time. Normal types settle for the best free answer;
+        weak-verifier types get a fast judge verdict on the best candidate
+        (ship on YES) and otherwise return None so the caller escalates to
+        remote - a wrong-but-unjudged answer risks the whole accuracy gate.
+        """
+        if (
+            cls.task_type in _JUDGE_REQUIRED_TYPES
+            and self._remote is not None
+        ):
+            best = self._best_candidate(candidates)
+            if best is not None and best.verified and self._cfg.judge_enabled:
+                result = self._judge_rung(
+                    prompt, best.text, best.confidence, cls, trace, started, rejected
+                )
+                if result is not None:
+                    return result
+            trace.append(
+                RungTrace(Rung.SELF_CONSISTENCY, "time-pressure-escalate", "")
+            )
+            return None
+        return self._settle_for_best(prompt, cls, candidates, trace, started)
 
     def _ship_unanimous(
         self,
@@ -446,6 +493,8 @@ class EscalationLadder:
             trace.append(RungTrace(Rung.REMOTE_CHEAP, "remote-cheap-error", str(exc)))
 
         if self._out_of_time(started, time_cap):
+            # Cheap remote already failed/was unverified; settle rather than
+            # spend more time on the strong model.
             return self._settle_for_best(prompt, cls, candidates, trace, started)
 
         # Rung 6: strong remote model - the last resort.
