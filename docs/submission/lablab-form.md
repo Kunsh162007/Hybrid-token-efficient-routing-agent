@@ -1,62 +1,64 @@
 # lablab.ai Submission Form Copy
 
-## Project title
+Field limits (from the live form): title 5-50 chars, short description
+50-255 chars, long description 600-2000 chars (min 100 words).
 
-Hybrid Token-Efficient Routing Agent — Local First, Tokens Last
+## Submission Title (47/50 chars)
 
-## Short description (elevator pitch)
+Hybrid Routing Agent — Local First, Tokens Last
 
-An AI agent that treats remote tokens as the scarce resource they are: a local
-Gemma model climbs a free escalation ladder (attempt → verify → self-consistency
-vote), and Fireworks AI is called only when the free rungs can't be trusted —
-starting with a 1-token remote judge before any paid generation. Semantic
-caching, adaptive thresholds, and a learned router make it cheaper the longer
-it runs.
+## Short Description (192/255 chars)
 
-## Long description
+A local Gemma model answers everything it can prove correct for free;
+Fireworks AI is called only when trust runs out — starting with a 1-token
+judge. Fewer paid tokens, same accuracy.
 
-**The insight.** Track 1 scores remote token count plus output accuracy, and
-local tokens count as zero. The winning agent therefore isn't the one with the
-best model — it's the one that most reliably knows when its free answer is
+## Long Description (~1,850/2000 chars)
+
+Track 1 scores accuracy first, then ranks survivors by Fireworks tokens spent
+— and local tokens count as zero. So the winning agent isn't the one with the
+best model; it's the one that most reliably knows when its free answer is
 already correct.
 
-**The escalation ladder.** Every task climbs a cost-ordered ladder and exits at
-the first trustworthy rung: (0) heuristic/learned classification and a semantic
-cache lookup; (1-2) local Gemma attempts gated by a zero-cost verifier (numbers
-must parse, MCQ letters must be among the options, Python must compile) and
-logprob-based confidence — exp(mean token logprob), an honest signal instead of
-asking the model if it's sure; (3) self-consistency majority voting across k
-free samples, where a unanimous vote ships instantly; (4) the cheapest paid
-rung — a remote judge that grades the local winner with literally one output
-token, because verification costs 10-50x less than generation; (5) a cheap
-Fireworks model with a compressed prompt and the local draft as a hint; (6) a
-strong model as the last resort, under a hard per-task token budget that ships
-the best free answer rather than overspending.
+Every task climbs a cost-ordered escalation ladder and exits at the first
+trustworthy rung. Rung 0 classifies the task with zero-cost heuristics, plus
+an exact Python solver for explicit arithmetic (free AND certain). Rungs 1-3
+are local Gemma attempts gated by a strict free verifier (numbers must parse,
+MCQ letters must be among the options, Python must compile, summaries must
+honor stated length limits) and honest logprob confidence, then
+self-consistency voting across independent samples. Rung 4 is the cheapest
+paid call: a remote judge grades the local winner with a single output token
+— verification costs 10-50x less than generation. Only then come real paid
+generations: a cheap model with a compressed prompt and the local draft as a
+hint, then a strong model as last resort, under a hard per-task token budget.
 
-**It gets cheaper as it runs.** Paid answers are cached in SQLite with MiniLM
-embeddings, so near-duplicate queries become free; per-task-type success rates
-adapt the escalation thresholds online; and the eval harness turns every run
-into training data for a logistic-regression router that predicts whether the
-local model will succeed — retrainable in seconds when the real tasks and
-models are revealed at kickoff (all model IDs live in one config file).
+Weak-verifier categories (math word problems, code debugging, logical
+deduction) never ship on local confidence alone — the 1-token judge must
+approve, and a judge-rejected answer can never win a self-consistency vote.
+That discipline came from dry-running the judged contract end to end: all
+eight capability categories answered correctly at a fraction of all-remote
+token cost.
 
-**Built like a product.** FastAPI dashboard that visualizes each task climbing
-the ladder with a live token meter; CLI for scoring runs and evals; ~110
-offline tests; containerized (CPU-only python:3.11-slim) so it runs identically
-on a laptop, on Render, and on the scoring environment; graceful degradation
-when the model file or the API key is absent.
+It ships as a single public linux/amd64 Docker image implementing the harness
+contract — tasks.json in, results.json out, atomic writes after every task,
+10-minute budget management — reading FIREWORKS_BASE_URL and ALLOWED_MODELS
+from the environment at runtime. Plus a live dashboard that visualizes every
+task climbing the ladder with a token meter, 161 offline tests, and graceful
+degradation when the model file or API key is absent.
 
-**Stack.** Gemma 3 (local via llama.cpp, free) · Fireworks AI (escalation) ·
-FastAPI · SQLite + fastembed · scikit-learn · Docker · Render.
+## Technologies Used
 
-## Technology & category tags
+Gemma 3 · Fireworks AI · llama.cpp · Python · FastAPI · SQLite · fastembed ·
+scikit-learn · Docker · Hugging Face Spaces
 
-`gemma` `fireworks-ai` `llama.cpp` `python` `fastapi` `docker` `render`
+Tag-style: `gemma` `fireworks-ai` `llama-cpp` `python` `fastapi` `docker`
 `ai-agents` `model-routing` `cost-optimization` `amd`
 
 ## Links
 
-- Public GitHub repository: [ADD URL]
-- Demo application (Render): [ADD URL]
-- Video presentation: [ADD URL]
+- Public GitHub repository: https://github.com/Kunsh162007/Hybrid-token-efficient-routing-agent
+- Docker image (Track 1 submission): docker.io/kunsh16/routing-agent:latest
+- Live demo (HF Spaces): https://huggingface.co/spaces/Kunsh16/routing-agent
+- Video presentation: [ADD URL after recording]
 - Slides: print `docs/submission/slides.html` to PDF and upload
+- Cover image: open `docs/submission/cover-image.html` at 1280x720, screenshot
