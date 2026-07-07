@@ -141,22 +141,63 @@ def _summary_constraint_violation(prompt: str, answer: str) -> str:
     return ""
 
 
+# Free-text types where two correct answers rarely match word-for-word;
+# voting uses word-overlap agreement instead of string equality, otherwise
+# every summary/QA vote splits and escalates to a paid rung for nothing.
+_FUZZY_VOTE_TYPES = frozenset(
+    {TaskType.SUMMARY, TaskType.QA, TaskType.GENERAL, TaskType.EXTRACTION, TaskType.LOGIC}
+)
+_MIN_VOTE_JACCARD = 0.5
+
+
+def answers_agree(task_type: TaskType, norm_a: str, norm_b: str) -> bool:
+    """Do two normalized answers count as the same vote?"""
+    if norm_a == norm_b:
+        return True
+    if task_type not in _FUZZY_VOTE_TYPES:
+        return False
+    words_a, words_b = set(norm_a.split()), set(norm_b.split())
+    if not words_a or not words_b:
+        return False
+    overlap = len(words_a & words_b) / len(words_a | words_b)
+    return overlap >= _MIN_VOTE_JACCARD
+
+
 def majority_vote(task_type: TaskType, answers: list[str]) -> tuple[str, float]:
     """Self-consistency vote over normalized answers.
 
     Returns (winning raw answer, vote ratio). Free consensus signal.
+    Free-text answers cluster by word overlap; exact types by equality.
     """
     if not answers:
         return "", 0.0
     normalized = [normalize(task_type, answer) for answer in answers]
-    counts = Counter(norm for norm in normalized if norm)
-    if not counts:
+    if task_type not in _FUZZY_VOTE_TYPES:
+        counts = Counter(norm for norm in normalized if norm)
+        if not counts:
+            return answers[0], 1.0 / len(answers)
+        winner_norm, winner_count = counts.most_common(1)[0]
+        winner_raw = next(
+            raw for raw, norm in zip(answers, normalized, strict=True)
+            if norm == winner_norm
+        )
+        return winner_raw, winner_count / len(answers)
+
+    # Greedy clustering: each answer joins the first agreeing cluster.
+    clusters: list[list[int]] = []
+    for index, norm in enumerate(normalized):
+        if not norm:
+            continue
+        for cluster in clusters:
+            if answers_agree(task_type, normalized[cluster[0]], norm):
+                cluster.append(index)
+                break
+        else:
+            clusters.append([index])
+    if not clusters:
         return answers[0], 1.0 / len(answers)
-    winner_norm, winner_count = counts.most_common(1)[0]
-    winner_raw = next(
-        raw for raw, norm in zip(answers, normalized, strict=True) if norm == winner_norm
-    )
-    return winner_raw, winner_count / len(answers)
+    biggest = max(clusters, key=len)
+    return answers[biggest[0]], len(biggest) / len(answers)
 
 
 def _looks_like_valid_code(code: str, prompt: str) -> bool:

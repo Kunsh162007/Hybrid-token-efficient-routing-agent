@@ -24,7 +24,7 @@ from routing_agent.router.adaptive import AdaptiveThresholds
 from routing_agent.router.compression import compress_prompt
 from routing_agent.router.confidence import logprob_to_confidence
 from routing_agent.router.toolsolve import try_solve_math
-from routing_agent.router.verifier import majority_vote, normalize, verify
+from routing_agent.router.verifier import answers_agree, majority_vote, normalize, verify
 from routing_agent.types import (
     Classification,
     GenerationResult,
@@ -43,7 +43,10 @@ _LOCAL_INSTRUCTIONS: dict[TaskType, str] = {
         "types are requested, prefix each line with its type, e.g. "
         "'PERSON: ...', 'ORG: ...', 'LOCATION: ...', 'DATE: ...'."
     ),
-    TaskType.SUMMARY: "Reply with only the summary.",
+    TaskType.SUMMARY: (
+        "Reply with only the summary. If the task states a length limit "
+        "(for example one sentence), obey it exactly - never exceed it."
+    ),
     TaskType.SENTIMENT: (
         "State the sentiment as one word (positive, negative, or neutral), "
         "then justify it in one short sentence."
@@ -259,7 +262,7 @@ class EscalationLadder:
         # Early exit: a unanimous quorum needs no more evidence; any dissent
         # disables the shortcut and the full k-sample vote decides.
         while len(candidates) < self._cfg.self_consistency_k:
-            winner = self._unanimous_quorum(candidates, rejected)
+            winner = self._unanimous_quorum(cls.task_type, candidates, rejected)
             if winner is not None:
                 trace.append(
                     RungTrace(
@@ -572,20 +575,26 @@ class EscalationLadder:
         )
 
     def _unanimous_quorum(
-        self, candidates: list[_Candidate], rejected: set[str]
+        self, task_type: TaskType, candidates: list[_Candidate], rejected: set[str]
     ) -> str | None:
         """Winner text when >= quorum verified answers agree with no dissent.
 
-        A judge-rejected answer never wins: the same model repeating itself
-        is not evidence against an explicit remote NO.
+        Free-text agreement is word-overlap based (two good summaries are
+        never word-identical). A judge-rejected answer never wins: the same
+        model repeating itself is not evidence against an explicit remote NO.
         """
         verified = [c for c in candidates if c.verified and c.normalized]
         if len(verified) < self._cfg.early_consensus_quorum:
             return None
-        distinct = {c.normalized for c in verified}
-        if len(distinct) != 1 or verified[0].normalized in rejected:
+        first = verified[0]
+        if first.normalized in rejected:
             return None
-        return verified[0].text
+        if any(
+            not answers_agree(task_type, first.normalized, c.normalized)
+            for c in verified[1:]
+        ):
+            return None
+        return first.text
 
     @staticmethod
     def _best_candidate(candidates: list[_Candidate]) -> _Candidate | None:

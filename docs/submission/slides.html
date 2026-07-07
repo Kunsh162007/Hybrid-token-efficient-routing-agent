@@ -69,14 +69,17 @@
 </section>
 
 <section class="slide">
-  <h2>Confidence you can't fake</h2>
+  <h2>Trust you can't fake</h2>
   <ul>
-    <li><b>Logprob confidence</b> — <code>exp(mean token logprob)</code> from llama.cpp;
-        honest, calibratable, free — no "are you sure?" prompting</li>
     <li><b>Zero-token verifier</b> — numeric answers must parse, MCQ letters must be
-        among the options, Python must compile, refusals rejected</li>
-    <li><b>Split-vote tiebreak</b> — unanimous local vote ships instantly;
-        contested vote pays 1 token for a remote verdict, not a full generation</li>
+        among the options, Python must compile, summaries must honor stated
+        length limits, sentiment needs label + justification</li>
+    <li><b>Self-consistency quorum</b> — two independent local samples must agree
+        before a free answer ships; contested votes pay 1 token for a remote
+        verdict, not a full generation</li>
+    <li><b>Judge-gated categories</b> — math word problems, code debugging, and
+        logic never ship on local agreement alone; a judge-rejected answer can
+        never win a vote</li>
   </ul>
   <span class="pagenum">4</span>
 </section>
@@ -98,9 +101,9 @@
 
 <section class="slide">
   <h2>Live dashboard</h2>
-  <p>Watch a task climb the ladder in real time: rung lights, token meter,
-     free-task ratio, cache hits.</p>
-  <p><em>[DEMO — Render URL here]</em></p>
+  <p>Watch a task route in real time: streaming rung events, token meter,
+     free-task ratio, session memory.</p>
+  <p><em>huggingface.co/spaces/Kunsh16/routing-agent</em></p>
   <p>CLI for scoring runs: <code>routing-agent run --tasks tasks.jsonl</code></p>
   <span class="pagenum">6</span>
 </section>
@@ -108,22 +111,24 @@
 <section class="slide">
   <h2>Built to survive launch day</h2>
   <ul>
-    <li>Models revealed at kickoff → <b>every model ID lives in config.yaml</b>, zero code changes</li>
-    <li>Eval harness sweeps thresholds and reports per-rung exits:
-        accuracy vs. tokens, pick the cheapest point above the floor</li>
-    <li>Containerized (python:3.11-slim, CPU-only) — runs identically on a laptop,
-        Render, and the scoring environment</li>
-    <li>~110 offline tests; clients mocked; graceful degradation everywhere</li>
+    <li>Models revealed at kickoff → <b>ALLOWED_MODELS and FIREWORKS_BASE_URL are
+        read from the environment at runtime</b>; tiers picked by size, zero code changes</li>
+    <li>Harness contract built in: tasks.json → results.json, atomic writes,
+        exit codes, 10-minute budget with per-task time caps</li>
+    <li>Containerized (python:3.11-slim, CPU-only, model baked in) — public
+        linux/amd64 image, identical on a laptop and the scoring VM</li>
+    <li>161 offline tests; clients mocked; graceful degradation everywhere</li>
   </ul>
   <span class="pagenum">7</span>
 </section>
 
 <section class="slide">
   <div class="eyebrow">STACK</div>
-  <h2>Gemma · Fireworks AI · llama.cpp · FastAPI · Docker · Render</h2>
+  <h2>Gemma · Fireworks AI · llama.cpp · FastAPI · Docker</h2>
   <ul>
-    <li>GitHub: <em>[repo URL]</em></li>
-    <li>Live demo: <em>[Render URL]</em></li>
+    <li>GitHub: <em>github.com/Kunsh162007/Hybrid-token-efficient-routing-agent</em></li>
+    <li>Image: <em>docker.io/kunsh16/routing-agent:latest</em></li>
+    <li>Live demo: <em>huggingface.co/spaces/Kunsh16/routing-agent</em></li>
     <li>Local first. Tokens last.</li>
   </ul>
   <span class="pagenum">8</span>

@@ -64,6 +64,13 @@ them. `eval/sweep.py` finds the cheapest threshold above an accuracy floor.
 
 ## Gotchas
 
+- `clients/local.py` deliberately sets `logits_all=False` and requests no
+  logprobs: the pinned llama-cpp-python raises on logprobs without logits_all,
+  and logits_all=True runs the 262k-vocab LM head on every prompt token
+  (multi-second prefill tax on long prompts). Confidence is a neutral 0.5;
+  trust comes from the verifier, the quorum vote (2 unanimous samples), and
+  the remote judge. Do not "re-enable" logprobs without re-measuring prefill.
+
 - `scripts/entrypoint.sh` must stay LF (`.gitattributes` enforces it) or the
   Linux container fails to start.
 - Windows dev box runs Python 3.14; the Docker image pins 3.11 for

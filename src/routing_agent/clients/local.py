@@ -41,11 +41,17 @@ class LocalGemmaClient:
 
         self._config = config
         try:
+            # logits_all=False is a large prefill win: True makes llama.cpp
+            # run the 262k-vocab LM head on EVERY prompt token. The cost is
+            # losing logprob confidence (this llama-cpp-python raises if
+            # logprobs are requested without it) - at the shipped 0.98
+            # threshold that signal never gated anything, so the ladder's
+            # verifier + self-consistency + judge carry trust instead.
             self._llm = Llama(
                 model_path=str(model_path),
                 n_ctx=config.n_ctx,
                 n_threads=config.n_threads or None,
-                logits_all=True,
+                logits_all=False,
                 verbose=False,
             )
         except Exception as exc:  # corrupt GGUF, mmap/alloc failure, ABI drift
@@ -72,8 +78,6 @@ class LocalGemmaClient:
                 temperature=(
                     temperature if temperature is not None else self._config.temperature
                 ),
-                logprobs=True,
-                top_logprobs=1,
             )
         except Exception as exc:
             raise GenerationError(f"Local generation failed: {exc}") from exc

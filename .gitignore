@@ -34,3 +34,6 @@ Thumbs.db
 
 # Organizer documents (not ours to redistribute)
 *.pdf
+
+# Raw video recordings (kept locally for editing)
+*.mp4

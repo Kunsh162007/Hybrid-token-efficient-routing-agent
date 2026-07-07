@@ -71,6 +71,27 @@ def test_verify_summary_enforces_word_constraint():
     assert verify(TaskType.SUMMARY, prompt, "Concise summary here.").ok
 
 
+def test_paraphrased_summaries_vote_together():
+    # Two good summaries are never word-identical; word-overlap must unify
+    # them or every free-text vote splits and escalates to a paid rung.
+    answers = [
+        "The council approved a pilot program for bicycle lanes on Main Street.",
+        "The council approved the bicycle lane pilot program on Main Street.",
+    ]
+    winner, ratio = majority_vote(TaskType.SUMMARY, answers)
+    assert ratio == 1.0
+    assert "council" in winner.lower()
+
+
+def test_unrelated_free_text_answers_still_split_the_vote():
+    answers = [
+        "The council approved a bicycle lane pilot program.",
+        "Parking fees will rise by two percent downtown next year.",
+    ]
+    _, ratio = majority_vote(TaskType.SUMMARY, answers)
+    assert ratio == 0.5
+
+
 def test_verify_rejects_empty():
     assert not verify(TaskType.QA, "q?", "   ").ok
 

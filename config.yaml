@@ -11,15 +11,16 @@ local:
   max_tokens: 512
   # Short-answer types get tight caps so generations finish fast; math keeps
   # room for chain-of-thought (local tokens are free, but time is not).
+  # Generation time is linear in max_tokens on CPU; caps tuned for latency.
   max_tokens_by_type:
     qa: 96
     mcq: 96
     sentiment: 96
     extraction: 160
-    summary: 192
-    math: 288
-    logic: 320
-    general: 192
+    summary: 160
+    math: 256
+    logic: 288
+    general: 160
   temperature: 0.2
   retry_temperature: 0.8  # rung 2 uses a hotter retry
 
@@ -49,9 +50,12 @@ ladder:
   # Measured on Gemma 3 1B (2026-07-05): at 0.72 the 1B model ships everything
   # rung-1 including wrong answers (67% acc, 0 tok); at 0.98 shaky answers
   # escalate (75% acc, ~1k tok over 12 tasks). Re-sweep on launch-day tasks.
+  # NOTE: local logprobs are disabled for prefill speed (see clients/local.py),
+  # so confidence is a neutral 0.5 and rungs 1-2 never ship on it - the
+  # verifier + quorum vote + judge are the trust chain.
   confidence_threshold: 0.98
   self_consistency_k: 5        # rung 3 sample count (includes rungs 1-2 answers)
-  early_consensus_quorum: 3    # unanimous after N samples -> stop sampling
+  early_consensus_quorum: 2    # unanimous after N samples -> stop sampling (latency)
   unanimous_ratio: 1.0         # vote ratio that ships without judge
   contested_ratio: 0.6         # vote ratio at/above which the remote judge arbitrates
   skip_ahead_difficulty: 0.85  # rung 0 difficulty above this jumps straight to remote
