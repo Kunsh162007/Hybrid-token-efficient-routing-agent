@@ -6,125 +6,120 @@
 <title>Routing Agent</title>
 <style>
   :root {
-    --bg: #0a0d12; --panel: #10141c; --panel-2: #151b26; --line: #1f2735;
-    --line-2: #2c3750; --text: #e3e9f4; --dim: #6f7d94; --faint: #4a556b;
-    --free: #34d987; --free-dim: rgba(52,217,135,.12);
-    --paid: #f5b453; --paid-dim: rgba(245,180,83,.12);
-    --hot: #ff6f6f; --accent: #7fb2ff;
+    --bg: #07090d; --panel: rgba(255,255,255,.025); --panel-line: rgba(255,255,255,.07);
+    --text: #e9edf5; --dim: #8b96ab; --faint: #525d72;
+    --free: #2fe08c; --paid: #ffb757; --hot: #ff7070; --accent: #86b6ff;
+    --sans: ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
     --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", Consolas, monospace;
   }
   * { box-sizing: border-box; margin: 0; }
-  html, body { height: 100%; }
   body {
-    background:
-      radial-gradient(1200px 500px at 75% -10%, rgba(127,178,255,.05), transparent 60%),
-      var(--bg);
-    color: var(--text); font-family: var(--mono); font-size: 14px;
-    padding: 1.6rem clamp(1rem, 3.5vw, 2.6rem);
+    min-height: 100vh; background: var(--bg); color: var(--text); font-family: var(--sans);
+    font-size: 15px; padding: 2rem clamp(1rem, 4vw, 3.4rem) 3rem;
+    background-image:
+      radial-gradient(900px 420px at 20% -10%, rgba(47,224,140,.06), transparent 60%),
+      radial-gradient(900px 420px at 85% -10%, rgba(255,183,87,.05), transparent 60%);
   }
-  header { display: flex; align-items: baseline; gap: .9rem; margin-bottom: 1.4rem; }
-  h1 { font-size: 1.05rem; font-weight: 650; letter-spacing: .04em; }
-  .status { display: inline-flex; align-items: center; gap: .4rem; color: var(--dim); font-size: .72rem; }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
-  .dot.on { background: var(--free); box-shadow: 0 0 6px var(--free); }
-  main { display: grid; grid-template-columns: minmax(340px, 1fr) minmax(360px, .95fr); gap: 1.1rem; }
-  @media (max-width: 940px) { main { grid-template-columns: 1fr; } }
-  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 1.1rem 1.2rem; }
-  .panel + .panel { margin-top: 1.1rem; }
-  .label { font-size: .66rem; text-transform: uppercase; letter-spacing: .16em; color: var(--dim); margin-bottom: .8rem; }
+  header { display: flex; align-items: center; gap: .8rem; margin-bottom: 1.6rem; }
+  h1 { font-size: 1rem; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; }
+  .status { display: inline-flex; align-items: center; gap: .45rem; color: var(--faint); font-size: .74rem; margin-left: auto; font-family: var(--mono); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); }
+  .dot.on { background: var(--free); box-shadow: 0 0 8px var(--free); }
+
+  main { display: grid; grid-template-columns: 1fr 300px; gap: 1.2rem; max-width: 1200px; margin: 0 auto; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--panel); border: 1px solid var(--panel-line); border-radius: 14px;
+    padding: 1.15rem 1.25rem; backdrop-filter: blur(6px);
+  }
+  .card + .card { margin-top: 1.2rem; }
+  .k { font-size: .64rem; letter-spacing: .22em; text-transform: uppercase; color: var(--faint); margin-bottom: .85rem; }
+
+  /* input */
+  .inputwrap { position: relative; }
   textarea {
-    width: 100%; min-height: 96px; background: var(--panel-2); color: var(--text);
-    border: 1px solid var(--line); border-radius: 9px; padding: .75rem .85rem;
-    font: inherit; resize: vertical; line-height: 1.45;
+    width: 100%; min-height: 92px; background: rgba(255,255,255,.03); color: var(--text);
+    border: 1px solid var(--panel-line); border-radius: 11px; padding: .85rem 6.4rem .85rem 1rem;
+    font-family: var(--mono); font-size: .86rem; line-height: 1.55; resize: vertical;
   }
-  textarea:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
-  .row { display: flex; gap: .6rem; align-items: center; margin-top: .7rem; flex-wrap: wrap; }
-  button {
-    background: var(--text); color: #0b0e13; font: inherit; font-weight: 700; font-size: .82rem;
-    border: 0; border-radius: 8px; padding: .6rem 1.5rem; cursor: pointer;
+  textarea:focus { outline: none; border-color: rgba(134,182,255,.5); box-shadow: 0 0 0 3px rgba(134,182,255,.1); }
+  #go {
+    position: absolute; right: .6rem; bottom: .7rem;
+    background: var(--text); color: #0a0c10; border: 0; border-radius: 9px;
+    font: 700 .8rem var(--sans); padding: .55rem 1.25rem; cursor: pointer;
   }
-  button:hover { background: #fff; }
-  button:disabled { opacity: .4; cursor: wait; }
-  .samples { display: flex; gap: .45rem; flex-wrap: wrap; }
+  #go:hover { background: #fff; }
+  #go:disabled { opacity: .35; cursor: wait; }
+  .samples { display: flex; gap: .45rem; flex-wrap: wrap; margin-top: .7rem; }
   .samples a {
-    color: var(--dim); font-size: .7rem; border: 1px solid var(--line); border-radius: 999px;
-    padding: .28rem .7rem; cursor: pointer; transition: color .15s, border-color .15s;
+    color: var(--dim); font-size: .72rem; border: 1px solid var(--panel-line); border-radius: 999px;
+    padding: .3rem .75rem; cursor: pointer; transition: .15s;
   }
-  .samples a:hover { color: var(--text); border-color: var(--line-2); }
-  .err { color: var(--hot); margin-top: .6rem; font-size: .76rem; display: none; }
+  .samples a:hover { color: var(--text); border-color: rgba(255,255,255,.25); }
+  .err { color: var(--hot); margin-top: .6rem; font-size: .78rem; font-family: var(--mono); display: none; }
 
-  .answer { margin-top: 1rem; display: none; }
-  .answer .verdict {
-    display: flex; gap: .55rem; align-items: center; font-size: .7rem;
-    letter-spacing: .08em; margin-bottom: .55rem;
+  /* stream */
+  .stream { font-family: var(--mono); font-size: .8rem; line-height: 1.7; min-height: 180px; }
+  .stream:empty::after { content: "waiting for a task"; color: var(--faint); }
+  .ev {
+    display: flex; gap: .7rem; align-items: baseline; padding: .3rem 0;
+    opacity: 0; transform: translateY(5px); animation: rise .3s ease forwards;
   }
-  .badge {
-    padding: .18rem .6rem; border-radius: 999px; font-weight: 700; font-size: .66rem;
-    border: 1px solid var(--free); color: var(--free); background: var(--free-dim);
+  @keyframes rise { to { opacity: 1; transform: none; } }
+  .chip {
+    flex: none; width: 1.55rem; text-align: center; border-radius: 6px; font-weight: 700; font-size: .7rem;
+    padding: .1rem 0; border: 1px solid; line-height: 1.5;
   }
-  .badge.paid { border-color: var(--paid); color: var(--paid); background: var(--paid-dim); }
-  .answer .meta { color: var(--faint); }
+  .chip.free { color: var(--free); border-color: rgba(47,224,140,.4); background: rgba(47,224,140,.08); }
+  .chip.paid { color: var(--paid); border-color: rgba(255,183,87,.45); background: rgba(255,183,87,.08); }
+  .ev .what { color: var(--text); }
+  .ev .det { color: var(--faint); }
+  .ev .tok { color: var(--paid); font-weight: 700; margin-left: auto; flex: none; }
+  .ev.busy .what { color: var(--dim); }
+  .spinner {
+    flex: none; width: .95rem; height: .95rem; border-radius: 50%; align-self: center;
+    border: 2px solid rgba(134,182,255,.25); border-top-color: var(--accent);
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .shipline {
+    margin-top: .55rem; padding-top: .65rem; border-top: 1px solid var(--panel-line);
+    display: flex; gap: .7rem; align-items: baseline; font-weight: 700;
+    opacity: 0; animation: rise .3s ease forwards;
+  }
+  .shipline.free { color: var(--free); }
+  .shipline.paid { color: var(--paid); }
+  .shipline .sec { color: var(--faint); font-weight: 400; margin-left: auto; }
+
+  .answer { margin-top: .9rem; display: none; }
   .answer pre {
-    background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px;
-    padding: .85rem .95rem; white-space: pre-wrap; word-break: break-word;
-    font: inherit; line-height: 1.5; max-height: 300px; overflow-y: auto;
+    font-family: var(--mono); font-size: .88rem; line-height: 1.65; white-space: pre-wrap;
+    word-break: break-word; color: var(--text); max-height: 320px; overflow-y: auto;
+    border-left: 2px solid var(--free); padding: .2rem 0 .2rem 1rem;
   }
-
-  /* ladder */
-  .ladder { list-style: none; display: flex; flex-direction: column-reverse; gap: .4rem; }
-  .rung {
-    display: grid; grid-template-columns: 1.6rem 1fr auto; align-items: center; gap: .7rem;
-    padding: .52rem .75rem; border-radius: 8px; border: 1px solid var(--line);
-    background: var(--panel-2); color: var(--faint); font-size: .78rem;
-    transition: color .2s, border-color .2s, box-shadow .2s;
-  }
-  .rung .n { font-weight: 700; color: inherit; }
-  .rung .c { font-size: .64rem; letter-spacing: .06em; }
-  .rung .c.free { color: var(--free); opacity: .55; }
-  .rung .c.paid { color: var(--paid); opacity: .55; }
-  .rung.scan { color: var(--text); border-color: var(--line-2); box-shadow: inset 0 0 0 1px var(--line-2); }
-  .rung.visited { color: var(--text); border-color: var(--line-2); }
-  .rung.exit-free { color: var(--free); border-color: var(--free); box-shadow: 0 0 14px rgba(52,217,135,.18); }
-  .rung.exit-paid { color: var(--paid); border-color: var(--paid); box-shadow: 0 0 14px rgba(245,180,83,.18); }
-
-  /* streaming trace log */
-  .log {
-    margin-top: 1rem; background: #0c1016; border: 1px solid var(--line); border-radius: 9px;
-    padding: .7rem .85rem; font-size: .72rem; line-height: 1.65; color: var(--dim);
-    height: 132px; overflow-y: auto;
-  }
-  .log .line { opacity: 0; transform: translateY(3px); animation: in .22s ease forwards; }
-  .log .line .r { color: var(--accent); }
-  .log .line .tok { color: var(--paid); }
-  .log .line.done-free { color: var(--free); }
-  .log .line.done-paid { color: var(--paid); }
-  .log .cursor::after { content: "▌"; animation: blink 1s steps(1) infinite; color: var(--accent); }
-  @keyframes in { to { opacity: 1; transform: none; } }
+  .answer.paid pre { border-left-color: var(--paid); }
+  .caret::after { content: "▌"; color: var(--accent); animation: blink 1s steps(1) infinite; }
   @keyframes blink { 50% { opacity: 0; } }
 
-  /* totals */
-  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: .6rem; }
-  @media (max-width: 560px) { .stats { grid-template-columns: repeat(2, 1fr); } }
-  .stat { background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px; padding: .7rem .8rem; }
-  .stat .v { font-size: 1.35rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  /* right rail */
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
+  .stat { border: 1px solid var(--panel-line); border-radius: 11px; padding: .75rem .85rem; background: rgba(255,255,255,.02); }
+  .stat .v { font: 700 1.45rem var(--mono); font-variant-numeric: tabular-nums; }
   .stat .v.free { color: var(--free); }
   .stat .v.paid { color: var(--paid); }
-  .stat .k { color: var(--dim); font-size: .62rem; letter-spacing: .1em; margin-top: .3rem; text-transform: uppercase; }
-
-  /* memory */
-  .mem { display: flex; flex-direction: column; gap: .45rem; max-height: 260px; overflow-y: auto; }
-  .mem:empty::after { content: "no tasks routed yet"; color: var(--faint); font-size: .74rem; }
+  .stat .l { color: var(--faint); font-size: .62rem; letter-spacing: .14em; text-transform: uppercase; margin-top: .35rem; }
+  .mem { display: flex; flex-direction: column; gap: .5rem; max-height: 320px; overflow-y: auto; }
+  .mem:empty::after { content: "nothing yet"; color: var(--faint); font-size: .76rem; }
   .mem .item {
-    display: grid; grid-template-columns: 1fr auto auto; gap: .7rem; align-items: center;
-    background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
-    padding: .5rem .7rem; font-size: .74rem;
+    border: 1px solid var(--panel-line); border-radius: 10px; padding: .55rem .7rem;
+    background: rgba(255,255,255,.02); font-size: .74rem;
   }
-  .mem .q { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .mem .rung-tag { color: var(--dim); font-size: .66rem; }
-  .mem .t { font-weight: 700; font-variant-numeric: tabular-nums; }
-  .mem .t.free { color: var(--free); }
-  .mem .t.paid { color: var(--paid); }
-  footer { margin-top: 1.6rem; color: var(--faint); font-size: .68rem; }
+  .mem .q { color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: .3rem; }
+  .mem .row2 { display: flex; justify-content: space-between; font-family: var(--mono); font-size: .68rem; }
+  .mem .rg { color: var(--faint); }
+  .mem .t.free { color: var(--free); font-weight: 700; }
+  .mem .t.paid { color: var(--paid); font-weight: 700; }
+  footer { max-width: 1200px; margin: 1.8rem auto 0; color: var(--faint); font-size: .68rem; font-family: var(--mono); }
 </style>
 </head>
 <body>
@@ -135,96 +130,87 @@
 
 <main>
   <div>
-    <section class="panel">
-      <div class="label">Task</div>
-      <textarea id="prompt" placeholder="Type a task, or pick one below"></textarea>
-      <div class="row">
+    <section class="card">
+      <div class="k">Task</div>
+      <div class="inputwrap">
+        <textarea id="prompt" placeholder="Type a task"></textarea>
         <button id="go">Route</button>
-        <div class="samples">
-          <a data-q="What is 128 * 46?">arithmetic</a>
-          <a data-q="What is the capital of Japan?">factual</a>
-          <a data-q="Classify the sentiment of this review and justify it: 'The battery died within a week and support never replied.'">sentiment</a>
-          <a data-q="A store sells apples at 3 dollars each. If I buy 7 apples and pay with a 50 dollar bill, how much change do I get?">word problem</a>
-          <a data-q="What's wrong with this code? Provide the corrected implementation.&#10;&#10;def average(nums):&#10;    total = 0&#10;    for n in nums:&#10;        total += n&#10;    return total / len(nums) + 1">debug</a>
-        </div>
+      </div>
+      <div class="samples">
+        <a data-q="What is 128 * 46?">arithmetic</a>
+        <a data-q="What is the capital of Japan?">factual</a>
+        <a data-q="Classify the sentiment of this review and justify it: 'The battery died within a week and support never replied.'">sentiment</a>
+        <a data-q="A store sells apples at 3 dollars each. If I buy 7 apples and pay with a 50 dollar bill, how much change do I get?">word problem</a>
       </div>
       <div class="err" id="err"></div>
-      <div class="answer" id="answer">
-        <div class="verdict">
-          <span class="badge" id="badge">0 remote tokens</span>
-          <span class="meta" id="meta"></span>
-        </div>
-        <pre id="answer-text"></pre>
-      </div>
     </section>
 
-    <section class="panel">
-      <div class="label">Memory</div>
-      <div class="mem" id="mem"></div>
+    <section class="card">
+      <div class="k">Live routing</div>
+      <div class="stream" id="stream"></div>
+      <div class="answer" id="answer"><pre id="answer-text"></pre></div>
     </section>
   </div>
 
   <div>
-    <section class="panel">
-      <div class="label">Escalation ladder</div>
-      <ul class="ladder" id="ladder">
-        <li class="rung" data-rung="0"><span class="n">0</span><span>classify · exact math solver</span><span class="c free">free</span></li>
-        <li class="rung" data-rung="1"><span class="n">1</span><span>local attempt · verifier</span><span class="c free">free</span></li>
-        <li class="rung" data-rung="2"><span class="n">2</span><span>local retry</span><span class="c free">free</span></li>
-        <li class="rung" data-rung="3"><span class="n">3</span><span>self-consistency vote</span><span class="c free">free</span></li>
-        <li class="rung" data-rung="4"><span class="n">4</span><span>remote judge · 1 token</span><span class="c paid">paid</span></li>
-        <li class="rung" data-rung="5"><span class="n">5</span><span>remote model · cheap tier</span><span class="c paid">paid</span></li>
-        <li class="rung" data-rung="6"><span class="n">6</span><span>remote model · strong tier</span><span class="c paid">paid</span></li>
-      </ul>
-      <div class="log" id="log"><div class="line cursor" id="idle-line">idle</div></div>
-    </section>
-
-    <section class="panel">
-      <div class="label">Session totals</div>
+    <section class="card">
+      <div class="k">Session</div>
       <div class="stats">
-        <div class="stat"><div class="v" id="s-tasks">0</div><div class="k">tasks</div></div>
-        <div class="stat"><div class="v paid" id="s-remote">0</div><div class="k">remote tokens</div></div>
-        <div class="stat"><div class="v free" id="s-local">0</div><div class="k">local tokens · free</div></div>
-        <div class="stat"><div class="v free" id="s-free">–</div><div class="k">tasks at zero cost</div></div>
+        <div class="stat"><div class="v" id="s-tasks">0</div><div class="l">tasks</div></div>
+        <div class="stat"><div class="v paid" id="s-remote">0</div><div class="l">remote tokens</div></div>
+        <div class="stat"><div class="v free" id="s-local">0</div><div class="l">local · free</div></div>
+        <div class="stat"><div class="v free" id="s-free">–</div><div class="l">zero-cost tasks</div></div>
       </div>
+    </section>
+    <section class="card">
+      <div class="k">Memory</div>
+      <div class="mem" id="mem"></div>
     </section>
   </div>
 </main>
 
-<footer>local model via llama.cpp · remote escalation via Fireworks AI · answers verified before they ship</footer>
+<footer>local model via llama.cpp · remote escalation via Fireworks AI · every answer verified before it ships</footer>
 
 <script>
 const $ = (id) => document.getElementById(id);
-const rungEls = Object.fromEntries(
-  [...document.querySelectorAll(".rung")].map(el => [+el.dataset.rung, el]));
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-let scanTimer = null;
+const PAID_RUNGS = new Set([4, 5, 6]);
+let tickTimer = null;
 
-function setScan(on) {
-  clearInterval(scanTimer);
-  Object.values(rungEls).forEach(el => el.classList.remove("scan"));
-  if (!on) return;
-  let i = 0;
-  scanTimer = setInterval(() => {
-    Object.values(rungEls).forEach(el => el.classList.remove("scan"));
-    rungEls[i % 7].classList.add("scan");
-    i++;
-  }, 220);
-}
-
-function logLine(html, cls = "") {
-  const log = $("log");
+function ev({rung, what, det, tok, busy}) {
   const div = document.createElement("div");
-  div.className = "line " + cls;
-  div.innerHTML = html;
-  log.appendChild(div);
-  log.scrollTop = log.scrollHeight;
+  div.className = "ev" + (busy ? " busy" : "");
+  div.innerHTML =
+    (busy ? `<span class="spinner"></span>`
+          : `<span class="chip ${PAID_RUNGS.has(rung) ? "paid" : "free"}">${rung}</span>`) +
+    `<span class="what"></span>` +
+    (det ? `<span class="det"></span>` : "") +
+    (tok ? `<span class="tok">+${tok} tok</span>` : "");
+  div.querySelector(".what").textContent = what;
+  if (det) div.querySelector(".det").textContent = det;
+  $("stream").appendChild(div);
+  div.scrollIntoView({block: "nearest"});
   return div;
 }
 
-function resetLog(text) {
-  $("log").innerHTML = "";
-  return logLine(text, "cursor");
+function startBusy() {
+  const line = ev({busy: true, what: "routing", det: "0s"});
+  const t0 = performance.now();
+  tickTimer = setInterval(() => {
+    line.querySelector(".det").textContent = Math.round((performance.now() - t0) / 1000) + "s";
+  }, 250);
+  return line;
+}
+
+async function typeOut(el, text) {
+  el.classList.add("caret");
+  const step = Math.max(1, Math.round(text.length / 90));
+  for (let i = 0; i <= text.length; i += step) {
+    el.textContent = text.slice(0, i);
+    await sleep(12);
+  }
+  el.textContent = text;
+  el.classList.remove("caret");
 }
 
 async function refreshStats() {
@@ -243,35 +229,15 @@ async function refreshStats() {
 }
 
 function remember(prompt, d) {
+  const paid = d.remote_tokens > 0;
   const item = document.createElement("div");
   item.className = "item";
-  const paid = d.remote_tokens > 0;
   item.innerHTML =
-    `<span class="q"></span>` +
-    `<span class="rung-tag">${d.exit_rung.toLowerCase().replace(/_/g, " ")}</span>` +
-    `<span class="t ${paid ? "paid" : "free"}">${paid ? d.remote_tokens + " tok" : "0 tok"}</span>`;
+    `<div class="q"></div><div class="row2">` +
+    `<span class="rg">rung ${d.exit_rung_number} · ${d.elapsed_seconds}s</span>` +
+    `<span class="t ${paid ? "paid" : "free"}">${d.remote_tokens} tok</span></div>`;
   item.querySelector(".q").textContent = prompt;
   $("mem").prepend(item);
-}
-
-async function streamTrace(d) {
-  Object.values(rungEls).forEach(el => el.className = "rung");
-  $("log").innerHTML = "";
-  for (const t of d.trace) {
-    const el = rungEls[t.rung_number];
-    if (el) el.classList.add("visited");
-    logLine(
-      `<span class="r">rung ${t.rung_number}</span> ${t.action}` +
-      (t.detail ? ` · ${t.detail}` : "") +
-      (t.remote_tokens ? ` <span class="tok">+${t.remote_tokens} tok</span>` : ""));
-    await sleep(240);
-  }
-  const paid = d.remote_tokens > 0;
-  const exitEl = rungEls[d.exit_rung_number];
-  if (exitEl) exitEl.classList.add(paid ? "exit-paid" : "exit-free");
-  logLine(
-    `shipped from rung ${d.exit_rung_number} · ${d.remote_tokens} remote tokens · ${d.elapsed_seconds}s`,
-    paid ? "done-paid" : "done-free");
 }
 
 async function route() {
@@ -280,9 +246,8 @@ async function route() {
   $("go").disabled = true;
   $("err").style.display = "none";
   $("answer").style.display = "none";
-  Object.values(rungEls).forEach(el => el.className = "rung");
-  resetLog("routing");
-  setScan(true);
+  $("stream").innerHTML = "";
+  const busyLine = startBusy();
   try {
     const res = await fetch("/api/route", {
       method: "POST", headers: {"Content-Type": "application/json"},
@@ -290,21 +255,29 @@ async function route() {
     });
     if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
     const d = await res.json();
-    setScan(false);
-    await streamTrace(d);
+    clearInterval(tickTimer);
+    busyLine.remove();
+    for (const t of d.trace) {
+      ev({rung: t.rung_number, what: t.action.replace(/-/g, " "),
+          det: t.detail, tok: t.remote_tokens});
+      await sleep(230);
+    }
     const paid = d.remote_tokens > 0;
-    $("badge").textContent = paid ? d.remote_tokens + " remote tokens" : "0 remote tokens";
-    $("badge").className = "badge" + (paid ? " paid" : "");
-    $("meta").textContent =
-      `${d.task_type} · exit rung ${d.exit_rung_number} · verified ${d.verified}` +
-      `${d.cached ? " · cache" : ""} · ${d.elapsed_seconds}s`;
-    $("answer-text").textContent = d.answer || "(no answer)";
+    const ship = document.createElement("div");
+    ship.className = "shipline " + (paid ? "paid" : "free");
+    ship.innerHTML =
+      `<span>${paid ? d.remote_tokens + " remote tokens" : "0 remote tokens"}</span>` +
+      `<span class="det">exit rung ${d.exit_rung_number} · verified ${d.verified}${d.cached ? " · cache" : ""}</span>` +
+      `<span class="sec">${d.elapsed_seconds}s</span>`;
+    $("stream").appendChild(ship);
+    $("answer").className = "answer" + (paid ? " paid" : "");
     $("answer").style.display = "block";
+    await typeOut($("answer-text"), d.answer || "(no answer)");
     remember(prompt, d);
     refreshStats();
   } catch (e) {
-    setScan(false);
-    resetLog("idle");
+    clearInterval(tickTimer);
+    busyLine.remove();
     $("err").textContent = "error: " + e.message;
     $("err").style.display = "block";
   } finally {
