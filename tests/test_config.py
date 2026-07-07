@@ -82,3 +82,77 @@ def test_dotenv_never_overrides_real_env(tmp_path, monkeypatch):
     (tmp_path / ".env").write_text("FIREWORKS_API_KEY=fw_file\n", encoding="utf-8")
 
     assert get_api_key() == "fw_real"
+
+
+def test_env_base_url_overrides_yaml(tmp_path, monkeypatch):
+    # Arrange: YAML says one URL, the judging harness injects another
+    cfg_file = tmp_path / "config.yaml"
+    cfg_file.write_text("remote:\n  base_url: 'https://yaml.test/v1'\n", encoding="utf-8")
+    monkeypatch.setenv("FIREWORKS_BASE_URL", "https://proxy.judge.test/v1/")
+
+    # Act
+    cfg = load_config(cfg_file)
+
+    # Assert: env wins, trailing slash stripped
+    assert cfg.remote.base_url == "https://proxy.judge.test/v1"
+
+
+def test_allowed_models_picks_cheap_and_strong_by_size(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv(
+        "ALLOWED_MODELS",
+        "accounts/fireworks/models/llama-v3p1-70b-instruct,"
+        "accounts/fireworks/models/llama-v3p1-8b-instruct",
+    )
+
+    cfg = load_config()
+
+    assert cfg.remote.cheap_model.endswith("8b-instruct")
+    assert cfg.remote.strong_model.endswith("70b-instruct")
+    assert cfg.remote.judge_model == cfg.remote.cheap_model
+
+
+def test_allowed_models_single_model_used_for_all_tiers(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ALLOWED_MODELS", "accounts/fireworks/models/only-one")
+
+    cfg = load_config()
+
+    assert cfg.remote.cheap_model == "accounts/fireworks/models/only-one"
+    assert cfg.remote.strong_model == "accounts/fireworks/models/only-one"
+
+
+def test_allowed_models_unsized_id_treated_as_large(monkeypatch, tmp_path):
+    # deepseek-v3-style IDs carry no size hint but are flagship-large models;
+    # the sized small model must stay the cheap tier.
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv(
+        "ALLOWED_MODELS",
+        "accounts/fireworks/models/deepseek-v3,"
+        "accounts/fireworks/models/llama-v3p1-8b-instruct",
+    )
+
+    cfg = load_config()
+
+    assert cfg.remote.cheap_model.endswith("8b-instruct")
+    assert cfg.remote.strong_model.endswith("deepseek-v3")
+
+
+def test_allowed_models_without_size_hints_keeps_list_order(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ALLOWED_MODELS", "models/alpha, models/beta")
+
+    cfg = load_config()
+
+    assert cfg.remote.cheap_model == "models/alpha"
+    assert cfg.remote.strong_model == "models/beta"
+
+
+def test_no_env_overrides_leaves_yaml_models(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("ALLOWED_MODELS", raising=False)
+    monkeypatch.delenv("FIREWORKS_BASE_URL", raising=False)
+
+    cfg = load_config()
+
+    assert cfg.remote.base_url == "https://api.fireworks.ai/inference/v1"

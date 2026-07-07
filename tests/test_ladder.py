@@ -68,6 +68,42 @@ def test_dissent_disables_early_consensus_and_samples_to_k():
     assert "4" in result.answer
 
 
+def test_confident_code_answer_still_asks_the_judge():
+    # Syntax-valid buggy code passes the free verifier, so CODE never ships
+    # on rung-1 confidence alone: the 1-token judge must say YES first.
+    code = "```python\ndef add(a, b):\n    return a + b\n```"
+    local = FakeLocalClient(answers=[code], logprob_mean=-0.05)
+    remote = FakeRemoteClient(judge_verdict=True)
+
+    result = make_ladder(local, remote).route("Fix the bug in this code: ...")
+
+    assert result.exit_rung == Rung.REMOTE_JUDGE
+    assert len(remote.judge_calls) == 1
+    assert remote.calls == []  # no full paid generation
+
+
+def test_code_judge_no_escalates_instead_of_shipping():
+    code = "```python\ndef add(a, b):\n    return a - b\n```"
+    local = FakeLocalClient(answers=[code], logprob_mean=-0.05)
+    remote = FakeRemoteClient(judge_verdict=False, answer="def add(a, b):\n    return a + b")
+
+    result = make_ladder(local, remote).route("Fix the bug in this python code: ...")
+
+    assert result.exit_rung >= Rung.REMOTE_CHEAP
+    assert len(remote.calls) >= 1
+
+
+def test_code_ships_locally_when_no_remote_available():
+    # Local-only degraded mode: the judge gate must not block shipping.
+    code = "```python\ndef add(a, b):\n    return a + b\n```"
+    local = FakeLocalClient(answers=[code], logprob_mean=-0.05)
+
+    result = make_ladder(local, None).route("Fix the bug in this code: ...")
+
+    assert result.exit_rung == Rung.LOCAL_FIRST
+    assert result.was_free
+
+
 def test_per_type_max_tokens_cap_is_used():
     local = FakeLocalClient(answers=["Answer: Tokyo"], logprob_mean=-0.05)
     ladder = EscalationLadder(

@@ -1,5 +1,15 @@
 # Final Submission Checklist
 
+## Harness contract (Track 1 — this is what gets scored)
+- [ ] Image pushed to a **public registry** (GHCR/Docker Hub), `linux/amd64` manifest
+- [ ] Compressed image size < 10 GB
+- [ ] Dry run: `docker run -v .../input:/input -v .../output:/output -e FIREWORKS_API_KEY=... -e FIREWORKS_BASE_URL=... -e ALLOWED_MODELS=... routing-agent`
+      reads `/input/tasks.json`, writes valid `/output/results.json`, exits 0
+- [ ] Full dry run finishes well under 10 minutes; container ready < 60s
+      (bake the GGUF: `--build-arg MODEL_URL=...`)
+- [ ] No `.env` in the image (`.dockerignore` covers it) — env vars come from the harness
+- [ ] No hardcoded model IDs in code; `ALLOWED_MODELS` override verified
+
 ## Code & repo
 - [ ] Push to a **public** GitHub repository
 - [ ] README setup instructions verified on a clean machine (`pip install -e ".[all]"` → `routing-agent serve`)
@@ -8,8 +18,12 @@
 - [ ] `.env` NOT committed (already gitignored — verify)
 
 ## Launch day (models revealed)
-- [ ] Update `config.yaml`: `remote.cheap_model`, `remote.strong_model`, `remote.judge_model`, local GGUF
+- [ ] Verify `ALLOWED_MODELS` tier-picking on the real ID list (`load_config` test with the actual string)
+- [ ] A/B `logits_all=False` in `clients/local.py` on the container's llama-cpp-python version
+      (big prefill/memory win IF sampled-token logprobs still come through; some versions raise)
 - [ ] Run `routing-agent eval` on revealed/proxy tasks with `--train-log`
+- [ ] Run eval at least once with `task_type` omitted from every task — the real harness
+      never supplies types, so classifier misrouting must show up in eval numbers
 - [ ] Threshold sweep → pick cheapest point above the accuracy floor
 - [ ] Train + A/B the learned router; enable only if it beats heuristics
 - [ ] A/B the decomposer; keep `enabled: false` unless it wins

@@ -31,3 +31,6 @@ htmlcov/
 Thumbs.db
 .idea/
 .vscode/
+
+# Organizer documents (not ours to redistribute)
+*.pdf

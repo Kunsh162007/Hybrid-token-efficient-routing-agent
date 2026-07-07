@@ -27,8 +27,47 @@ def test_detects_extraction():
     assert classify(prompt).task_type == TaskType.EXTRACTION
 
 
+def test_detects_code_debugging_phrasing():
+    prompt = "What's wrong with this code? It throws an error on empty input."
+    assert classify(prompt).task_type == TaskType.CODE
+
+
+def test_detects_ner_without_extract_keyword():
+    prompt = "Who are the people and organizations mentioned in this article?"
+    assert classify(prompt).task_type == TaskType.EXTRACTION
+
+
+def test_code_fence_without_intent_is_not_code():
+    prompt = "What does this snippet output? ```\nconsole.log(1 + 1)\n```"
+    assert classify(prompt).task_type != TaskType.CODE
+
+
 def test_detects_summary():
     assert classify("Summarize this article: ...").task_type == TaskType.SUMMARY
+
+
+def test_detects_sentiment():
+    prompt = "Classify the sentiment of this review and justify: 'Great phone!'"
+    assert classify(prompt).task_type == TaskType.SENTIMENT
+
+
+def test_detects_logic_puzzle():
+    prompt = (
+        "Alice, Bob and Carol are seated in a row. Alice sits next to Bob "
+        "but not Carol. Deduce who sits in the middle."
+    )
+    assert classify(prompt).task_type == TaskType.LOGIC
+
+
+def test_math_word_problem_with_conditional_stays_math():
+    prompt = "If all the boxes weigh 5 kg each, how much do 3 boxes weigh?"
+    assert classify(prompt).task_type == TaskType.MATH
+
+
+def test_logic_is_harder_than_sentiment():
+    logic = classify("Deduce who is telling the truth in this logic puzzle.")
+    sentiment = classify("What is the sentiment of: 'I love it'?")
+    assert logic.difficulty > sentiment.difficulty
 
 
 def test_question_falls_back_to_qa():

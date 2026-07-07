@@ -36,17 +36,23 @@ class Runtime:
     local_available: bool
     remote_available: bool
 
-    def route_task(self, prompt: str) -> TaskResult:
+    def route_task(
+        self, prompt: str, *, time_cap_seconds: float | None = None
+    ) -> TaskResult:
         """Route one task, trying decomposition first when enabled."""
         if self.decomposer.enabled:
             decomposed = self.decomposer.route_decomposed(prompt, self.ladder)
             if decomposed is not None:
                 return decomposed
-        return self.ladder.route(prompt)
+        return self.ladder.route(prompt, time_cap_seconds=time_cap_seconds)
 
 
-def build_runtime(config_path: str | None = None) -> Runtime:
-    config = load_config(config_path)
+def build_runtime(
+    config_path: str | None = None, *, config: AppConfig | None = None
+) -> Runtime:
+    """Assemble the agent. Pass `config` to skip the file load (the submission
+    runner uses this to apply harness-mode overrides)."""
+    config = config or load_config(config_path)
     if config.web.demo_mode:
         config = _apply_demo_caps(config)
 

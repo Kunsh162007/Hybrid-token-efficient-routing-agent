@@ -11,6 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 pip install -e ".[dev,web]"                       # minimal dev install (no llama.cpp build)
 pip install -e ".[all]"                           # + local inference, cache embeddings, sklearn
 .venv/Scripts/python -m routing_agent.cli serve   # dashboard at :8000
+.venv/Scripts/python -m routing_agent.cli submit --input tasks.json --output results.json  # harness batch mode
 docker build -t routing-agent .                   # python:3.11-slim; llama.cpp compiles from source
 ```
 
@@ -48,7 +49,14 @@ Key contracts to preserve:
   keep it strict but zero-cost. `normalize()` also feeds voting and eval scoring,
   so changes affect three places.
 - Everything launch-day-dependent (model IDs, thresholds) lives in
-  `config.yaml` — never hardcode model names in source.
+  `config.yaml` — never hardcode model names in source. At evaluation time the
+  judging harness injects `FIREWORKS_BASE_URL` and `ALLOWED_MODELS`; those env
+  vars override the YAML inside `load_config()` (cheap/strong tiers picked by
+  parameter-count hints in the IDs). Don't bypass `load_config`.
+- `submission.py` implements the judged contract (`/input/tasks.json` →
+  `/output/results.json`, exit 0, ≤10 min, cache disabled, atomic rewrites
+  after every task). The entrypoint switches to it when `/input/tasks.json`
+  exists or `HARNESS_MODE=1`; otherwise it serves the dashboard.
 
 Eval loop: `eval/harness.py:run_eval()` scores accuracy vs. remote tokens and
 appends training records; `router/learned.py` trains a logistic regression from

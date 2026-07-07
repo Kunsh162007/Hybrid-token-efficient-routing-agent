@@ -14,14 +14,19 @@ local:
   max_tokens_by_type:
     qa: 96
     mcq: 96
+    sentiment: 96
     extraction: 160
     summary: 192
     math: 288
+    logic: 320
     general: 192
   temperature: 0.2
   retry_temperature: 0.8  # rung 2 uses a hotter retry
 
 remote:
+  # NOTE: at evaluation time the judging harness injects FIREWORKS_BASE_URL
+  # and ALLOWED_MODELS environment variables, and those ALWAYS override the
+  # values below (see config.py). The YAML values are local-dev defaults.
   base_url: "https://api.fireworks.ai/inference/v1"
   # Tiered escalation: cheap first, strong as last resort.
   # NOTE: placeholders from today's account catalog - swap in the model IDs

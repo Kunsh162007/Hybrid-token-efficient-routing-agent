@@ -1,12 +1,16 @@
 """Configuration loading and validation.
 
 Every launch-day-dependent value (model IDs, thresholds, budgets) lives in
-config.yaml so nothing needs a code change when models are revealed.
+config.yaml so nothing needs a code change when models are revealed. The
+judging harness injects FIREWORKS_BASE_URL and ALLOWED_MODELS at runtime;
+those environment variables always override the YAML (hackathon rule: calls
+that bypass the injected base URL or use non-allowed models score zero).
 """
 
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 
 import yaml
@@ -15,6 +19,8 @@ from pydantic import BaseModel, Field, field_validator
 DEFAULT_CONFIG_PATH = "config.yaml"
 CONFIG_ENV_VAR = "ROUTING_AGENT_CONFIG"
 API_KEY_ENV_VAR = "FIREWORKS_API_KEY"
+BASE_URL_ENV_VAR = "FIREWORKS_BASE_URL"
+ALLOWED_MODELS_ENV_VAR = "ALLOWED_MODELS"
 
 
 class LocalModelConfig(BaseModel):
@@ -111,14 +117,80 @@ def load_config(path: str | Path | None = None) -> AppConfig:
     if not resolved.exists():
         if path is not None:
             raise ConfigError(f"Config file not found: {resolved}")
-        return AppConfig()
+        return _apply_env_overrides(AppConfig())
     try:
         raw = yaml.safe_load(resolved.read_text(encoding="utf-8")) or {}
     except yaml.YAMLError as exc:
         raise ConfigError(f"Invalid YAML in {resolved}: {exc}") from exc
     if not isinstance(raw, dict):
         raise ConfigError(f"Config root must be a mapping, got {type(raw).__name__}")
-    return AppConfig.model_validate(raw)
+    return _apply_env_overrides(AppConfig.model_validate(raw))
+
+
+def _apply_env_overrides(config: AppConfig) -> AppConfig:
+    """Harness-injected env vars beat the YAML: base URL and allowed models."""
+    updates: dict[str, str] = {}
+
+    base_url = os.environ.get(BASE_URL_ENV_VAR, "").strip()
+    if base_url:
+        # model_copy(update=...) skips field validators, so the
+        # _no_trailing_slash rule is applied by hand here - keep in sync.
+        updates["base_url"] = base_url.rstrip("/")
+
+    allowed = [
+        model.strip()
+        for model in os.environ.get(ALLOWED_MODELS_ENV_VAR, "").split(",")
+        if model.strip()
+    ]
+    if allowed:
+        cheap, strong = _pick_model_tiers(allowed)
+        updates["cheap_model"] = cheap
+        updates["strong_model"] = strong
+        # 1-token verdicts don't need the strong model; judge on the cheap tier.
+        updates["judge_model"] = cheap
+
+    if not updates:
+        return config
+    return config.model_copy(
+        update={"remote": config.remote.model_copy(update=updates)}
+    )
+
+
+_PARAM_COUNT = re.compile(r"(\d+(?:\.\d+)?)\s*b\b", re.IGNORECASE)
+_MOE_COUNT = re.compile(r"(\d+)x(\d+(?:\.\d+)?)b\b", re.IGNORECASE)
+
+
+def _model_size_billions(model_id: str) -> float | None:
+    """Best-effort parameter count parsed from a model ID, in billions."""
+    moe = _MOE_COUNT.search(model_id)
+    if moe:
+        return float(moe.group(1)) * float(moe.group(2))
+    match = _PARAM_COUNT.search(model_id)
+    return float(match.group(1)) if match else None
+
+
+def _pick_model_tiers(allowed: list[str]) -> tuple[str, str]:
+    """(cheap, strong) from the allowed list by parameter-size hint.
+
+    IDs without a parseable size (deepseek-v3, kimi-k2, ...) are almost
+    always flagship-large models, so unknown sizes rank as infinitely large
+    rather than falling back to list order - otherwise a sized small model
+    next to an unsized giant would invert the tiers. If ranking cannot
+    separate the models, list order decides; a single allowed model fills
+    both tiers.
+    """
+    if len(allowed) == 1:
+        return allowed[0], allowed[0]
+
+    def rank(model: str) -> float:
+        size = _model_size_billions(model)
+        return size if size is not None else float("inf")
+
+    cheap = min(allowed, key=rank)
+    strong = max(allowed, key=rank)
+    if cheap == strong:
+        return allowed[0], allowed[-1]
+    return cheap, strong
 
 
 def get_api_key() -> str:

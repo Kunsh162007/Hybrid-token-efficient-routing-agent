@@ -27,6 +27,12 @@ def test_solves_product_phrase():
     assert try_solve_math("Find the product of 3, 4 and 5.") == "60"
 
 
+def test_aggregate_with_trailing_arithmetic_bails_out():
+    # "sum of 12, 5 and 3, minus 2" is 18; committing to 20 would be a silent
+    # wrong answer at 0.99 confidence, so the solver must decline.
+    assert try_solve_math("What is the sum of 12, 5 and 3, minus 2?") is None
+
+
 def test_division_formats_decimals():
     assert try_solve_math("What is 7 / 2?") == "3.5"
 

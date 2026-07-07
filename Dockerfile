@@ -33,7 +33,19 @@ COPY config.yaml ./
 COPY tasks ./tasks
 COPY scripts/entrypoint.sh /entrypoint.sh
 # World-writable model/data dirs: HF Spaces (and other PaaS) run as non-root.
-RUN chmod +x /entrypoint.sh && mkdir -p models data && chmod -R 777 models data
+# /input and /output: the judging harness mounts over these; creating them
+# writable lets local `docker run -v` tests work identically.
+RUN chmod +x /entrypoint.sh && mkdir -p models data /input /output \
+    && chmod -R 777 models data /input /output
+
+# Optional: bake the local GGUF into the image (recommended for submission -
+# the container then starts with zero network fetches, well inside the 60s
+# readiness rule). Build with:
+#   docker build --build-arg MODEL_URL=https://.../gemma-3-1b-it-q4_0.gguf .
+ARG MODEL_URL=""
+RUN if [ -n "$MODEL_URL" ]; then \
+        curl -fSL --retry 3 -o models/gemma-3-1b-it-q4_0.gguf "$MODEL_URL"; \
+    fi
 ENV HOME=/tmp
 
 EXPOSE 8000

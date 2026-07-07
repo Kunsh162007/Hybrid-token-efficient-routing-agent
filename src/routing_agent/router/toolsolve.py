@@ -18,6 +18,11 @@ _AGGREGATE = re.compile(
     re.IGNORECASE,
 )
 _CANDIDATE = re.compile(r"[\d(][\d\s.,+\-*/x×^%()]*\d")
+# Text continuing an aggregate with more arithmetic ("..., minus 2") means the
+# captured span is only part of the expression - bail rather than be wrong.
+_AGG_CONTINUATION = re.compile(
+    r"^\s*,?\s*(minus|plus|times|multiplied|divided|[-+*/×^%])", re.IGNORECASE
+)
 _STRONG_OP = re.compile(r"[*/×^%]|x(?=\s*\d)")
 _PLUS_MINUS = re.compile(r"[+\-]")
 _NUMBER = re.compile(r"\d+(?:\.\d+)?")
@@ -58,6 +63,8 @@ def try_solve_math(prompt: str) -> str | None:
 def _solve_aggregate(prompt: str) -> str | None:
     match = _AGGREGATE.search(prompt)
     if not match:
+        return None
+    if _AGG_CONTINUATION.match(prompt[match.end():]):
         return None
     numbers = [float(n) for n in _NUMBER.findall(match.group(2))]
     if len(numbers) < 2:

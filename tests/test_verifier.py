@@ -25,6 +25,52 @@ def test_normalize_code_strips_fence():
     assert normalize(TaskType.CODE, text).startswith("def f():")
 
 
+def test_normalize_sentiment_maps_to_label():
+    text = "Positive. The reviewer praises the battery life."
+    assert normalize(TaskType.SENTIMENT, text) == "positive"
+
+
+def test_normalize_sentiment_contrastive_phrasing_uses_stated_label():
+    text = "Negative, not positive at all - the reviewer is furious."
+    assert normalize(TaskType.SENTIMENT, text) == "negative"
+
+
+def test_sentiment_vote_agrees_across_different_justifications():
+    answers = [
+        "Positive - the tone is enthusiastic.",
+        "positive, because the reviewer recommends it",
+        "The sentiment is positive; strong praise throughout.",
+    ]
+    winner, ratio = majority_vote(TaskType.SENTIMENT, answers)
+    assert ratio == 1.0
+    assert "positive" in winner.lower()
+
+
+def test_verify_sentiment_requires_label():
+    assert verify(TaskType.SENTIMENT, "Sentiment?", "Negative - harsh review.").ok
+    assert not verify(TaskType.SENTIMENT, "Sentiment?", "It is a nice review.").ok
+
+
+def test_verify_sentiment_bare_label_needs_justification():
+    result = verify(TaskType.SENTIMENT, "Sentiment?", "Positive")
+    assert not result.ok
+    assert "justification" in result.reason
+
+
+def test_verify_summary_enforces_sentence_constraint():
+    prompt = "Summarise the following in one sentence: ..."
+    long_answer = "First sentence. Second sentence. Third sentence."
+    short_answer = "A single tidy sentence."
+    assert not verify(TaskType.SUMMARY, prompt, long_answer).ok
+    assert verify(TaskType.SUMMARY, prompt, short_answer).ok
+
+
+def test_verify_summary_enforces_word_constraint():
+    prompt = "Summarise this in under 5 words: ..."
+    assert not verify(TaskType.SUMMARY, prompt, "This answer clearly has too many words.").ok
+    assert verify(TaskType.SUMMARY, prompt, "Concise summary here.").ok
+
+
 def test_verify_rejects_empty():
     assert not verify(TaskType.QA, "q?", "   ").ok
 

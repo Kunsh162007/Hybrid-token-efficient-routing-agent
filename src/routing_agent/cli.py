@@ -55,6 +55,17 @@ def _build_parser() -> argparse.ArgumentParser:
     p_serve.add_argument("--port", type=int, default=None)
     p_serve.set_defaults(handler=_cmd_serve)
 
+    p_submit = sub.add_parser(
+        "submit", help="Hackathon harness mode: tasks.json in, results.json out"
+    )
+    p_submit.add_argument("--input", default=None, help="Path to tasks.json")
+    p_submit.add_argument("--output", default=None, help="Path to results.json")
+    p_submit.add_argument(
+        "--time-budget", type=float, default=None,
+        help="Global wall-clock budget in seconds",
+    )
+    p_submit.set_defaults(handler=_cmd_submit)
+
     return parser
 
 
@@ -140,6 +151,19 @@ def _cmd_train(args) -> int:
     print(f"Trained router saved to {args.out}")
     print("Enable it via learned_router.enabled: true in config.yaml")
     return 0
+
+
+def _cmd_submit(args) -> int:
+    from routing_agent import submission
+
+    kwargs = {}
+    if args.input is not None:
+        kwargs["input_path"] = args.input
+    if args.output is not None:
+        kwargs["output_path"] = args.output
+    if args.time_budget is not None:
+        kwargs["time_budget_seconds"] = args.time_budget
+    return submission.run_submission(config_path=args.config, **kwargs)
 
 
 def _cmd_serve(args) -> int:

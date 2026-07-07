@@ -19,6 +19,18 @@ _REFUSAL_MARKERS = (
     "i cannot", "i can't", "i'm unable", "as an ai", "i am unable",
     "i don't have access", "i'm sorry, but",
 )
+_SENTIMENT_LABELS = ("positive", "negative", "neutral", "mixed")
+_MIN_SENTIMENT_WORDS = 4  # label alone is not the label-plus-justification the judge wants
+_SENTENCE_LIMIT = re.compile(
+    r"\bin (?:exactly )?(one|a single|two|three|1|2|3) sentences?\b", re.IGNORECASE
+)
+_WORD_LIMIT = re.compile(
+    r"\b(?:in|under|at most|no more than|fewer than|less than|within|maximum(?: of)?)"
+    r"\s+(\d{1,3})\s+words\b",
+    re.IGNORECASE,
+)
+_SENTENCE_WORDS = {"one": 1, "a single": 1, "1": 1, "two": 2, "2": 2, "three": 3, "3": 3}
+_SENTENCE_END = re.compile(r"[.!?]+(?:\s|$)")
 
 
 def extract_final(text: str) -> str:
@@ -40,6 +52,17 @@ def normalize(task_type: TaskType, text: str) -> str:
         blocks = _CODE_BLOCK.findall(text)
         code = blocks[0] if blocks else final
         return code.strip()
+    if task_type == TaskType.SENTIMENT:
+        # Vote and score on the label; the justification wording may vary.
+        # Earliest mention wins: "Negative, not positive at all" is negative.
+        lowered = final.lower()
+        hits = [
+            (lowered.find(label), label)
+            for label in _SENTIMENT_LABELS
+            if label in lowered
+        ]
+        if hits:
+            return min(hits)[1]
     return " ".join(final.lower().split())
 
 
@@ -77,11 +100,45 @@ def verify(task_type: TaskType, prompt: str, answer: str) -> VerifyResult:
             return VerifyResult(
                 ok=False, normalized=normalized, reason="summary longer than source"
             )
+        constraint = _summary_constraint_violation(prompt, stripped)
+        if constraint:
+            return VerifyResult(ok=False, normalized=normalized, reason=constraint)
+    elif task_type == TaskType.SENTIMENT:
+        if normalized not in _SENTIMENT_LABELS:
+            return VerifyResult(
+                ok=False, normalized=normalized, reason="no sentiment label"
+            )
+        if len(stripped.split()) < _MIN_SENTIMENT_WORDS:
+            return VerifyResult(
+                ok=False, normalized=normalized, reason="missing justification"
+            )
 
     if len(stripped) > 8000:
         return VerifyResult(ok=False, normalized=normalized, reason="answer absurdly long")
 
     return VerifyResult(ok=True, normalized=normalized)
+
+
+def _summary_constraint_violation(prompt: str, answer: str) -> str:
+    """Check the answer against an explicit length constraint in the prompt.
+
+    Returns a failure reason, or "" when no constraint is stated or it holds.
+    The judged summarisation category scores format/length compliance, so a
+    5-sentence answer to an 'in one sentence' prompt must not ship.
+    """
+    sentence_match = _SENTENCE_LIMIT.search(prompt)
+    if sentence_match:
+        limit = _SENTENCE_WORDS[sentence_match.group(1).lower()]
+        count = max(len(_SENTENCE_END.findall(answer)), 1)
+        if count > limit:
+            return f"{count} sentences where the task asked for {limit}"
+    word_match = _WORD_LIMIT.search(prompt)
+    if word_match:
+        limit = int(word_match.group(1))
+        count = len(answer.split())
+        if count > limit:
+            return f"{count} words where the task allowed {limit}"
+    return ""
 
 
 def majority_vote(task_type: TaskType, answers: list[str]) -> tuple[str, float]:

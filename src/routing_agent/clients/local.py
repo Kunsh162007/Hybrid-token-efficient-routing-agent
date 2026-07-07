@@ -15,7 +15,9 @@ from routing_agent.clients.base import GenerationError, LocalModelUnavailable
 from routing_agent.config import LocalModelConfig
 from routing_agent.types import GenerationResult
 
-_DEFAULT_SYSTEM = "You are a precise assistant. Answer correctly and concisely."
+_DEFAULT_SYSTEM = (
+    "You are a precise assistant. Answer correctly and concisely, in English."
+)
 
 
 class LocalGemmaClient:
@@ -38,13 +40,18 @@ class LocalGemmaClient:
             ) from exc
 
         self._config = config
-        self._llm = Llama(
-            model_path=str(model_path),
-            n_ctx=config.n_ctx,
-            n_threads=config.n_threads or None,
-            logits_all=True,
-            verbose=False,
-        )
+        try:
+            self._llm = Llama(
+                model_path=str(model_path),
+                n_ctx=config.n_ctx,
+                n_threads=config.n_threads or None,
+                logits_all=True,
+                verbose=False,
+            )
+        except Exception as exc:  # corrupt GGUF, mmap/alloc failure, ABI drift
+            raise LocalModelUnavailable(
+                f"llama.cpp failed to load {model_path}: {exc}"
+            ) from exc
         self.model_id = model_path.stem
 
     def generate(

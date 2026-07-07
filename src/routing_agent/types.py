@@ -12,6 +12,8 @@ class TaskType(StrEnum):
     CODE = "code"
     EXTRACTION = "extraction"
     SUMMARY = "summary"
+    SENTIMENT = "sentiment"
+    LOGIC = "logic"
     QA = "qa"
     GENERAL = "general"
 

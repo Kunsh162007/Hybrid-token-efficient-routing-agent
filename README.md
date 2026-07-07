@@ -84,10 +84,35 @@ Without `MODEL_URL` (or without the RAM for it) the agent runs remote-only and
 says so on `/health`. Deployment: see [docs/DEPLOY.md](docs/DEPLOY.md) — a
 `render.yaml` Blueprint is included.
 
+### Harness / submission mode
+
+The same image satisfies the hackathon judging contract: when
+`/input/tasks.json` exists (or `HARNESS_MODE=1`), the container routes every
+task, writes `/output/results.json`, and exits 0 — no web server.
+
+```bash
+docker run -v "$PWD/input:/input" -v "$PWD/output:/output" \
+  -e FIREWORKS_API_KEY=... -e FIREWORKS_BASE_URL=... -e ALLOWED_MODELS=... \
+  routing-agent
+```
+
+Compliance handled automatically:
+
+- `FIREWORKS_BASE_URL` and `ALLOWED_MODELS` (injected by the harness)
+  **override** `config.yaml` — cheap/strong tiers are picked from the allowed
+  list by parameter-count hints in the model IDs.
+- The answer cache is disabled in this mode (no cached answers rule).
+- A global ~9-minute budget shrinks the per-task wall clock (≤25s/task) so the
+  run always finishes inside the 10-minute limit; `results.json` is rewritten
+  atomically after every task, so it is valid JSON at any kill point.
+- For the fastest cold start, bake the GGUF into the image:
+  `docker build --build-arg MODEL_URL=https://... -t routing-agent .`
+
 ## Launch-day checklist (models revealed at kickoff)
 
-1. Put the revealed model IDs into `config.yaml` (`remote.cheap_model`,
-   `remote.strong_model`, `remote.judge_model`; swap the GGUF under `local`).
+1. Nothing to hardcode: the harness injects `ALLOWED_MODELS` and
+   `FIREWORKS_BASE_URL` at runtime. For local eval runs, optionally mirror the
+   revealed IDs into `config.yaml` (`remote.*`) or export the env vars.
 2. `routing-agent eval --tasks <revealed-or-proxy tasks> --train-log data/training_records.jsonl`
 3. Sweep thresholds (`eval` + edit `ladder.confidence_threshold`) or train the
    learned router and set `learned_router.enabled: true` if it wins.

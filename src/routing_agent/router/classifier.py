@@ -18,12 +18,43 @@ _MATH_WORDS = (
 _CODE_WORDS = (
     "write a function", "write code", "implement", "python", "javascript",
     "regex", "sql query", "def ", "return a", "algorithm",
+    # Debugging phrasings - the judged code-debugging category rarely says
+    # "write code"; it says the code is broken.
+    "debug", "fix the bug", "fix this code", "fix the code",
+    "what's wrong with", "why does this fail", "throws an error",
+    "doesn't work", "does not work", "corrected implementation",
 )
 _EXTRACTION_WORDS = (
     "extract", "list all", "find all", "identify the", "pull out", "from the text",
     "from the following", "named entities",
+    # NER phrasings without the word "extract".
+    "people mentioned", "organizations mentioned", "locations mentioned",
+    "dates mentioned", "companies mentioned", "entities in",
+    "who are the people", "name the people", "name the organizations",
+)
+# Unfenced code snippets: a line opening a function/class definition.
+_BARE_CODE_LINE = re.compile(
+    r"(?m)^\s*(def |class |function |public |private |const |let |var )\w*"
+)
+# A fence alone is context, not intent; these verbs make it a code task.
+_CODE_INTENT_WORDS = (
+    "write", "implement", "fix", "debug", "correct", "refactor", "complete",
+    "modify", "wrong", "bug", "error", "fail",
 )
 _SUMMARY_WORDS = ("summarize", "summarise", "tl;dr", "in one sentence", "briefly describe")
+_SENTIMENT_WORDS = (
+    "sentiment", "positive or negative", "positive, negative", "tone of the",
+    "classify the review", "classify this review", "emotion expressed",
+    "opinion expressed", "how does the author feel",
+)
+_LOGIC_WORDS = (
+    # Deliberately specific phrases: bare conditionals like "if all" appear in
+    # ordinary math word problems and would misroute them to the LOGIC tier.
+    "logic puzzle", "logically", "deduce", "deduction", "syllogism",
+    "must be true", "cannot be true", "who is telling the truth",
+    "knights and knaves", "sits next to", "seated in", "is taller than",
+    "satisfy all", "constraints:",
+)
 _HARD_MARKERS = (
     "prove", "derive", "step by step", "explain why", "explain in detail",
     "compare and contrast", "trade-off", "essay", "comprehensive",
@@ -46,15 +77,23 @@ def _detect_type(prompt: str, lowered: str, signals: list[str]) -> TaskType:
     if len(_MCQ_OPTION.findall(prompt)) >= 2:
         signals.append("mcq-options")
         return TaskType.MCQ
+    if any(word in lowered for word in _SENTIMENT_WORDS):
+        signals.append("sentiment-keyword")
+        return TaskType.SENTIMENT
     if any(word in lowered for word in _SUMMARY_WORDS):
         signals.append("summary-keyword")
         return TaskType.SUMMARY
-    if _CODE_FENCE.search(prompt) or any(word in lowered for word in _CODE_WORDS):
+    has_snippet = bool(_CODE_FENCE.search(prompt) or _BARE_CODE_LINE.search(prompt))
+    has_code_intent = any(word in lowered for word in _CODE_INTENT_WORDS)
+    if any(word in lowered for word in _CODE_WORDS) or (has_snippet and has_code_intent):
         signals.append("code-keyword")
         return TaskType.CODE
     if any(word in lowered for word in _EXTRACTION_WORDS):
         signals.append("extraction-keyword")
         return TaskType.EXTRACTION
+    if any(word in lowered for word in _LOGIC_WORDS):
+        signals.append("logic-keyword")
+        return TaskType.LOGIC
     if _MATH_EXPR.search(prompt) or any(word in lowered for word in _MATH_WORDS):
         signals.append("math-signal")
         return TaskType.MATH
@@ -65,6 +104,7 @@ def _detect_type(prompt: str, lowered: str, signals: list[str]) -> TaskType:
 
 # Baseline difficulty per type, calibrated for a 1-4B local model.
 _TYPE_BASE: dict[TaskType, float] = {
+    TaskType.SENTIMENT: 0.20,
     TaskType.MCQ: 0.25,
     TaskType.EXTRACTION: 0.30,
     TaskType.QA: 0.35,
@@ -72,6 +112,7 @@ _TYPE_BASE: dict[TaskType, float] = {
     TaskType.MATH: 0.45,
     TaskType.GENERAL: 0.45,
     TaskType.CODE: 0.55,
+    TaskType.LOGIC: 0.65,
 }
 
 
