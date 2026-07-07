@@ -50,12 +50,6 @@
   }
   #go:hover { background: #fff; }
   #go:disabled { opacity: .35; cursor: wait; }
-  .samples { display: flex; gap: .45rem; flex-wrap: wrap; margin-top: .7rem; }
-  .samples a {
-    color: var(--dim); font-size: .72rem; border: 1px solid var(--panel-line); border-radius: 999px;
-    padding: .3rem .75rem; cursor: pointer; transition: .15s;
-  }
-  .samples a:hover { color: var(--text); border-color: rgba(255,255,255,.25); }
   .err { color: var(--hot); margin-top: .6rem; font-size: .78rem; font-family: var(--mono); display: none; }
 
   /* stream */
@@ -135,12 +129,6 @@
       <div class="inputwrap">
         <textarea id="prompt" placeholder="Type a task"></textarea>
         <button id="go">Route</button>
-      </div>
-      <div class="samples">
-        <a data-q="What is 128 * 46?">arithmetic</a>
-        <a data-q="What is the capital of Japan?">factual</a>
-        <a data-q="Classify the sentiment of this review and justify it: 'The battery died within a week and support never replied.'">sentiment</a>
-        <a data-q="A store sells apples at 3 dollars each. If I buy 7 apples and pay with a 50 dollar bill, how much change do I get?">word problem</a>
       </div>
       <div class="err" id="err"></div>
     </section>
@@ -287,8 +275,6 @@ async function route() {
 
 $("go").addEventListener("click", route);
 $("prompt").addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) route(); });
-document.querySelectorAll(".samples a").forEach(a =>
-  a.addEventListener("click", () => { $("prompt").value = a.dataset.q; }));
 refreshStats();
 setInterval(refreshStats, 15000);
 </script>
