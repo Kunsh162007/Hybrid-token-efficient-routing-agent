@@ -85,15 +85,16 @@ def test_load_tasks_requires_prompt(tmp_path):
 # ------------------------------------------------------------------ run_eval
 
 def test_run_eval_reports_accuracy_tokens_and_rungs(tmp_path):
+    # QA tasks: not judge-gated, so confident local answers stay free.
     tasks_path = tmp_path / "tasks.jsonl"
     tasks_path.write_text(
-        '{"id": "t1", "prompt": "What is 2+2?", "expected": "4", "task_type": "math"}\n'
-        '{"id": "t2", "prompt": "What is 3+3?", "expected": "6", "task_type": "math"}\n',
+        '{"id": "t1", "prompt": "Capital of France?", "expected": "paris", "task_type": "qa"}\n'
+        '{"id": "t2", "prompt": "Capital of Germany?", "expected": "berlin", "task_type": "qa"}\n',
         encoding="utf-8",
     )
     tasks = load_tasks(tasks_path)
-    # Local always answers 4 confidently: right for t1, wrong for t2.
-    ladder = make_ladder(FakeLocalClient(answers=["Answer: 4"], logprob_mean=-0.05),
+    # Local always answers Paris confidently: right for t1, wrong for t2.
+    ladder = make_ladder(FakeLocalClient(answers=["Answer: Paris"], logprob_mean=-0.05),
                          FakeRemoteClient())
 
     report = run_eval(ladder, tasks)
@@ -126,14 +127,14 @@ def test_run_eval_writes_training_log(tmp_path):
 def test_sweep_and_cheapest_above(tmp_path):
     tasks_path = tmp_path / "tasks.jsonl"
     tasks_path.write_text(
-        '{"id": "t1", "prompt": "What is 2+2?", "expected": "4", "task_type": "math"}\n',
+        '{"id": "t1", "prompt": "Capital of France?", "expected": "paris", "task_type": "qa"}\n',
         encoding="utf-8",
     )
     tasks = load_tasks(tasks_path)
 
     def factory(threshold):
         return make_ladder(
-            FakeLocalClient(answers=["Answer: 4"], logprob_mean=-0.05),
+            FakeLocalClient(answers=["Answer: Paris"], logprob_mean=-0.05),
             FakeRemoteClient(),
             threshold=threshold,
         )

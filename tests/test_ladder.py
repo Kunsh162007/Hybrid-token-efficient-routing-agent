@@ -8,6 +8,7 @@ from routing_agent.router.ladder import EscalationLadder
 from routing_agent.types import Classification, Rung, TaskType
 
 MATH_PROMPT = "What is 2+2?"
+QA_PROMPT = "What is the capital of France?"
 
 
 def make_ladder(local, remote, *, budget=None, cache=None, estimator=None, **ladder_kwargs):
@@ -24,10 +25,11 @@ def make_ladder(local, remote, *, budget=None, cache=None, estimator=None, **lad
 
 
 def test_confident_local_answer_exits_rung_1_free():
-    local = FakeLocalClient(answers=["Answer: 4"], logprob_mean=-0.05)
+    # QA is not judge-gated: a confident verified answer ships free.
+    local = FakeLocalClient(answers=["Answer: Paris"], logprob_mean=-0.05)
     remote = FakeRemoteClient()
 
-    result = make_ladder(local, remote).route(MATH_PROMPT)
+    result = make_ladder(local, remote).route(QA_PROMPT)
 
     assert result.exit_rung == Rung.LOCAL_FIRST
     assert result.remote_tokens == 0 and result.was_free
@@ -39,16 +41,43 @@ def test_confident_local_answer_exits_rung_1_free():
 def test_unconfident_but_unanimous_vote_ships_free_at_rung_3():
     # Confidence ~0.14 is below threshold, but samples agree unanimously:
     # the early-consensus quorum (3) stops sampling before k (5).
-    local = FakeLocalClient(answers=["Answer: 4"], logprob_mean=-2.0)
+    local = FakeLocalClient(answers=["Answer: Paris"], logprob_mean=-2.0)
     remote = FakeRemoteClient()
 
-    result = make_ladder(local, remote).route(MATH_PROMPT)
+    result = make_ladder(local, remote).route(QA_PROMPT)
 
     assert result.exit_rung == Rung.SELF_CONSISTENCY
     assert result.remote_tokens == 0
     assert len(local.calls) == 3  # quorum, not k
     assert remote.calls == []
     assert any(t.action == "early-consensus" for t in result.trace)
+
+
+def test_unanimous_math_is_still_judge_gated():
+    # A 1B model can be unanimously wrong on word problems; unanimity for
+    # judge-required types must pass the 1-token judge before shipping.
+    local = FakeLocalClient(answers=["Answer: 21"], logprob_mean=-0.05)
+    remote = FakeRemoteClient(judge_verdict=True)
+
+    result = make_ladder(local, remote).route(
+        "I buy 7 apples at 3 dollars each and pay 50. How much change?"
+    )
+
+    assert result.exit_rung == Rung.REMOTE_JUDGE
+    assert len(remote.judge_calls) == 1
+    assert remote.calls == []
+
+
+def test_judge_vetoed_unanimity_escalates_to_remote():
+    local = FakeLocalClient(answers=["Answer: 21"], logprob_mean=-0.05)
+    remote = FakeRemoteClient(judge_verdict=False, answer="29")
+
+    result = make_ladder(local, remote).route(
+        "I buy 7 apples at 3 dollars each and pay 50. How much change?"
+    )
+
+    assert result.exit_rung == Rung.REMOTE_CHEAP
+    assert result.answer == "29"
 
 
 def test_dissent_disables_early_consensus_and_samples_to_k():

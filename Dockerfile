@@ -25,6 +25,16 @@ ENV FORCE_CMAKE=1 \
 COPY pyproject.toml README.md ./
 RUN mkdir -p src && pip install ".[all]"
 
+# Optional: bake the local GGUF into the image (recommended for submission -
+# the container then starts with zero network fetches, well inside the 60s
+# readiness rule). Placed BEFORE the source layer so code changes never
+# re-download the 700MB model. Build with:
+#   docker build --build-arg MODEL_URL=https://.../gemma-3-1b-it-q4_0.gguf .
+ARG MODEL_URL=""
+RUN mkdir -p models && if [ -n "$MODEL_URL" ]; then \
+        curl -fSL --retry 3 -o models/gemma-3-1b-it-q4_0.gguf "$MODEL_URL"; \
+    fi
+
 # App layer: real sources, reinstalled without touching dependencies.
 COPY src ./src
 RUN pip install --no-deps --force-reinstall .
@@ -37,15 +47,6 @@ COPY scripts/entrypoint.sh /entrypoint.sh
 # writable lets local `docker run -v` tests work identically.
 RUN chmod +x /entrypoint.sh && mkdir -p models data /input /output \
     && chmod -R 777 models data /input /output
-
-# Optional: bake the local GGUF into the image (recommended for submission -
-# the container then starts with zero network fetches, well inside the 60s
-# readiness rule). Build with:
-#   docker build --build-arg MODEL_URL=https://.../gemma-3-1b-it-q4_0.gguf .
-ARG MODEL_URL=""
-RUN if [ -n "$MODEL_URL" ]; then \
-        curl -fSL --retry 3 -o models/gemma-3-1b-it-q4_0.gguf "$MODEL_URL"; \
-    fi
 ENV HOME=/tmp
 
 EXPOSE 8000

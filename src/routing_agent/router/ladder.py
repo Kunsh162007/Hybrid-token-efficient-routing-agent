@@ -60,10 +60,13 @@ _LOCAL_INSTRUCTIONS: dict[TaskType, str] = {
 _RETRY_SUFFIX = "\n\nRe-read the task carefully before answering."
 _DRAFT_HINT_MAX_CHARS = 200
 _JUDGE_ESTIMATED_TOKENS = 150  # conservative pre-flight estimate for budget check
-# Types where the free verifier is weakest (syntax-valid buggy code, fluent
-# wrong deductions): a confident rung-1/2 answer still needs the 1-token
-# remote judge before it ships. Unanimous self-consistency remains exempt.
-_JUDGE_REQUIRED_TYPES = frozenset({TaskType.CODE, TaskType.LOGIC})
+# Types where the free verifier is weakest: syntax-valid buggy code, fluent
+# wrong deductions, and word problems whose numeric answer parses but is
+# simply wrong. No local exit ships for these without a 1-token remote judge
+# verdict - including unanimous self-consistency, because a 1B model agreeing
+# with itself is not evidence (dry-run 2026-07-07: it unanimously returned
+# wrong change on a money word problem and the buggy code unchanged).
+_JUDGE_REQUIRED_TYPES = frozenset({TaskType.MATH, TaskType.CODE, TaskType.LOGIC})
 
 
 class _Candidate:
@@ -248,11 +251,12 @@ class EscalationLadder:
                         f"unanimous after {len(candidates)} samples",
                     )
                 )
-                self._thresholds.update(cls.task_type, True)
-                return self._finish(
-                    prompt, winner, Rung.SELF_CONSISTENCY, 1.0,
-                    cls, trace, started, verified=True,
+                result = self._ship_unanimous(
+                    prompt, winner, 1.0, cls, trace, started, rejected
                 )
+                if result is not None:
+                    return result
+                # Judge vetoed the consensus: keep sampling for a new answer.
             if self._out_of_time(started, time_cap):
                 break
             candidate = self._local_attempt(
@@ -281,11 +285,12 @@ class EscalationLadder:
                 return None
             vote_confidence = max(ratio, max(c.confidence for c in candidates if c.verified))
             if ratio >= self._cfg.unanimous_ratio:
-                self._thresholds.update(cls.task_type, True)
-                return self._finish(
-                    prompt, winner, Rung.SELF_CONSISTENCY, vote_confidence,
-                    cls, trace, started, verified=True,
+                result = self._ship_unanimous(
+                    prompt, winner, vote_confidence, cls, trace, started, rejected
                 )
+                if result is not None:
+                    return result
+                return None  # judge vetoed unanimity: go remote
             # Split-vote tiebreak: a contested-but-leading vote goes to the
             # 1-token remote judge instead of full remote generation.
             if ratio >= self._cfg.contested_ratio and self._cfg.judge_enabled:
@@ -295,6 +300,33 @@ class EscalationLadder:
                 if result is not None:
                     return result
         return None
+
+    def _ship_unanimous(
+        self,
+        prompt: str,
+        winner: str,
+        confidence: float,
+        cls: Classification,
+        trace: list[RungTrace],
+        started: float,
+        rejected: set[str],
+    ) -> TaskResult | None:
+        """Ship a unanimous self-consistency winner, judge-gated for the
+        weak-verifier types. None means the judge said NO."""
+        needs_judge = (
+            cls.task_type in _JUDGE_REQUIRED_TYPES
+            and self._remote is not None
+            and self._cfg.judge_enabled
+        )
+        if needs_judge:
+            return self._judge_rung(
+                prompt, winner, confidence, cls, trace, started, rejected
+            )
+        self._thresholds.update(cls.task_type, True)
+        return self._finish(
+            prompt, winner, Rung.SELF_CONSISTENCY, confidence,
+            cls, trace, started, verified=True,
+        )
 
     def _ship_or_judge(
         self,
