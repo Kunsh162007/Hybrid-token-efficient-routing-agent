@@ -103,6 +103,10 @@ def verify(task_type: TaskType, prompt: str, answer: str) -> VerifyResult:
         constraint = _summary_constraint_violation(prompt, stripped)
         if constraint:
             return VerifyResult(ok=False, normalized=normalized, reason=constraint)
+    elif task_type == TaskType.GENERAL:
+        constraint = _summary_constraint_violation(prompt, stripped)
+        if constraint:
+            return VerifyResult(ok=False, normalized=normalized, reason=constraint)
     elif task_type == TaskType.SENTIMENT:
         if normalized not in _SENTIMENT_LABELS:
             return VerifyResult(

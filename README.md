@@ -81,8 +81,9 @@ docker run -p 8000:8000 -e FIREWORKS_API_KEY=fw_... \
 ```
 
 Without `MODEL_URL` (or without the RAM for it) the agent runs remote-only and
-says so on `/health`. Deployment: see [docs/DEPLOY.md](docs/DEPLOY.md) — a
-`render.yaml` Blueprint is included.
+says so on `/health`. Deployment: the public image lives at
+`docker.io/kunsh16/routing-agent:latest`; a live demo runs on Hugging Face
+Spaces (Docker SDK — push this repo with the model baked via `MODEL_URL`).
 
 ### Harness / submission mode
 
@@ -132,8 +133,6 @@ pip install -e ".[dev]"
 pytest            # 108 tests, all offline (clients are mocked)
 ruff check src tests
 ```
-
-Architecture notes for AI-assisted development: see [CLAUDE.md](CLAUDE.md).
 
 ## License
 

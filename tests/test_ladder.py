@@ -159,6 +159,21 @@ def test_time_pressure_judges_math_instead_of_settling(monkeypatch):
     assert len(remote.judge_calls) == 1
 
 
+def test_mcq_is_judge_gated():
+    # The MCQ verifier accepts any offered letter, so a unanimously wrong
+    # pick would ship: the 1-token judge must approve MCQ answers.
+    local = FakeLocalClient(answers=["Answer: B"], logprob_mean=-0.05)
+    remote = FakeRemoteClient(judge_verdict=True)
+
+    result = make_ladder(local, remote).route(
+        "Which is a prime number?\nA) 21\nB) 29\nC) 33\nD) 39"
+    )
+
+    assert result.exit_rung == Rung.REMOTE_JUDGE
+    assert len(remote.judge_calls) == 1
+    assert remote.calls == []
+
+
 def test_tiny_time_cap_skips_local_entirely():
     # A cap too small for even one local generation goes straight to remote.
     local = FakeLocalClient(answers=["Answer: 4"])

@@ -69,7 +69,9 @@ _JUDGE_ESTIMATED_TOKENS = 150  # conservative pre-flight estimate for budget che
 # verdict - including unanimous self-consistency, because a 1B model agreeing
 # with itself is not evidence (dry-run 2026-07-07: it unanimously returned
 # wrong change on a money word problem and the buggy code unchanged).
-_JUDGE_REQUIRED_TYPES = frozenset({TaskType.MATH, TaskType.CODE, TaskType.LOGIC})
+_JUDGE_REQUIRED_TYPES = frozenset(
+    {TaskType.MATH, TaskType.CODE, TaskType.LOGIC, TaskType.MCQ}
+)
 # A local attempt below this time cap cannot finish on a slow CPU; go remote.
 _MIN_LOCAL_ATTEMPT_SECONDS = 8.0
 

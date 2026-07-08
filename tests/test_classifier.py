@@ -74,6 +74,12 @@ def test_question_falls_back_to_qa():
     assert classify("What is the capital of France?").task_type == TaskType.QA
 
 
+def test_explain_question_routes_to_general_not_qa():
+    # Explanatory prose must not get the terse 'Answer: X' QA instruction.
+    prompt = "What is photosynthesis? Explain in two sentences."
+    assert classify(prompt).task_type == TaskType.GENERAL
+
+
 def test_plain_instruction_is_general():
     assert classify("Translate hello to French.").task_type == TaskType.GENERAL
 

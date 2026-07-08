@@ -55,6 +55,10 @@ _LOGIC_WORDS = (
     "knights and knaves", "sits next to", "seated in", "is taller than",
     "satisfy all", "constraints:",
 )
+_EXPLAIN_WORDS = (
+    "explain", "describe", "in your own words", "how does", "why does",
+    "what are the differences", "walk me through",
+)
 _HARD_MARKERS = (
     "prove", "derive", "step by step", "explain why", "explain in detail",
     "compare and contrast", "trade-off", "essay", "comprehensive",
@@ -98,6 +102,11 @@ def _detect_type(prompt: str, lowered: str, signals: list[str]) -> TaskType:
         signals.append("math-signal")
         return TaskType.MATH
     if "?" in prompt:
+        # Explain/describe questions want prose, not a terse 'Answer: X' -
+        # route them to GENERAL so no answer-marker artifact ships.
+        if any(word in lowered for word in _EXPLAIN_WORDS):
+            signals.append("explanatory-question")
+            return TaskType.GENERAL
         signals.append("question-mark")
         return TaskType.QA
     return TaskType.GENERAL

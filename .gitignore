@@ -37,3 +37,14 @@ Thumbs.db
 
 # Raw video recordings (kept locally for editing)
 *.mp4
+
+# Local-only AI-assistant notes (kept on disk, never published)
+CLAUDE.md
+
+# Video-production working assets (local editing material only)
+docs/submission/narration-audio/
+docs/submission/tts-temp/
+docs/submission/slide-frames/
+docs/submission/narration-script.md
+docs/submission/RECORD-NARRATION.md
+docs/submission/cover-image.png
