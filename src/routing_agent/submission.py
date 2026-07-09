@@ -32,18 +32,25 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_INPUT_PATH = "/input/tasks.json"
 DEFAULT_OUTPUT_PATH = "/output/results.json"
-# Leave a safety margin under the harness's 10-minute kill.
-DEFAULT_TIME_BUDGET_SECONDS = 540.0
-# Stay under the guide's 30-seconds-per-request rule.
-MAX_TASK_SECONDS = 25.0
+# Leave a wide safety margin under the harness's 10-minute kill: the container
+# must fully *exit* before then, so the budget covers model load + the last
+# in-flight task's overrun + the final results write, not just routing time.
+DEFAULT_TIME_BUDGET_SECONDS = 480.0
+# Stay well under the guide's 30-seconds-per-request rule (local CPU inference
+# plus a remote fallback must both fit).
+MAX_TASK_SECONDS = 18.0
 # Below this cap the ladder cannot finish even one local attempt; escalation
 # paths still respect it via the out-of-time checks.
 MIN_TASK_SECONDS = 5.0
 # Remote HTTP bounds for harness mode: the ladder only checks the wall clock
 # *between* calls, so a single request must never be able to hold a task
-# hostage. Worst case = 2 attempts x 12s + 1s backoff, inside the 30s rule.
-REMOTE_TIMEOUT_SECONDS = 12.0
+# hostage. Worst case = 2 attempts x 8s + 1s backoff, inside the 30s rule.
+REMOTE_TIMEOUT_SECONDS = 8.0
 REMOTE_MAX_RETRIES = 1
+# Local self-consistency is the slowest free rung (up to k sequential CPU
+# generations per task); cap it low in harness mode so a task resolves fast -
+# a 2-sample quorum still ships, contested votes just escalate sooner.
+HARNESS_SELF_CONSISTENCY_K = 3
 
 
 def run_submission(
@@ -164,7 +171,12 @@ def _harness_config(config: AppConfig) -> AppConfig:
         update={
             "cache": config.cache.model_copy(update={"enabled": False}),
             "ladder": config.ladder.model_copy(
-                update={"wall_clock_cap_seconds": MAX_TASK_SECONDS}
+                update={
+                    "wall_clock_cap_seconds": MAX_TASK_SECONDS,
+                    "self_consistency_k": min(
+                        config.ladder.self_consistency_k, HARNESS_SELF_CONSISTENCY_K
+                    ),
+                }
             ),
             "decomposer": config.decomposer.model_copy(update={"enabled": False}),
             "remote": config.remote.model_copy(
