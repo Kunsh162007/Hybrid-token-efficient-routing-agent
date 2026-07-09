@@ -24,7 +24,13 @@ from routing_agent.router.adaptive import AdaptiveThresholds
 from routing_agent.router.compression import compress_prompt
 from routing_agent.router.confidence import logprob_to_confidence
 from routing_agent.router.toolsolve import try_solve_math
-from routing_agent.router.verifier import answers_agree, majority_vote, normalize, verify
+from routing_agent.router.verifier import (
+    answers_agree,
+    finalize_answer,
+    majority_vote,
+    normalize,
+    verify,
+)
 from routing_agent.types import (
     Classification,
     GenerationResult,
@@ -657,7 +663,7 @@ class EscalationLadder:
     ) -> TaskResult:
         remote_tokens = self._budget.end_task(rung)
         return TaskResult(
-            answer=answer,
+            answer=finalize_answer(cls.task_type, answer),
             exit_rung=rung,
             confidence=confidence,
             remote_tokens=remote_tokens,

@@ -66,6 +66,38 @@ def normalize(task_type: TaskType, text: str) -> str:
     return " ".join(final.lower().split())
 
 
+def finalize_answer(task_type: TaskType, text: str) -> str:
+    """The clean, submission-ready form of an answer.
+
+    The verifier and voter run on the model's raw text (chain-of-thought,
+    "Answer:" markers, "B) Jupiter", "$21."), but a strict harness scorer
+    compares against a terse reference and rejects that wrapping - which is how
+    correct-but-verbose answers score as wrong. So the answer that actually
+    ships is bare for exact-answer types (MCQ letter, math number, sentiment
+    label, code body) and de-preambled for prose types, casing preserved.
+
+    Safe under every plausible scoring scheme: a bare "B"/"21"/"Tokyo" passes
+    exact match, containment, and an LLM judge alike, whereas the verbose form
+    only passes the lenient ones.
+    """
+    if not text or not text.strip():
+        return ""
+    if task_type == TaskType.MCQ:
+        norm = normalize(task_type, text)
+        return norm if norm in {"A", "B", "C", "D", "E"} else extract_final(text)
+    if task_type == TaskType.MATH:
+        norm = normalize(task_type, text)
+        return norm if _NUMBER.fullmatch(norm) else extract_final(text)
+    if task_type == TaskType.SENTIMENT:
+        norm = normalize(task_type, text)
+        return norm if norm in _SENTIMENT_LABELS else extract_final(text)
+    if task_type == TaskType.CODE:
+        return normalize(task_type, text)  # the code block body, fences stripped
+    # QA, LOGIC, SUMMARY, EXTRACTION, GENERAL: keep the prose but drop any
+    # "Answer:" preamble / chain-of-thought the model emitted before it.
+    return extract_final(text)
+
+
 def verify(task_type: TaskType, prompt: str, answer: str) -> VerifyResult:
     """Cheap validity check; failing it forces the ladder to climb."""
     stripped = answer.strip()

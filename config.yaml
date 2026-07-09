@@ -33,12 +33,16 @@ remote:
   # NOTE: placeholders from today's account catalog - swap in the model IDs
   # revealed at kickoff. gpt-oss emits hidden reasoning tokens, hence the
   # larger judge cap.
-  cheap_model: "accounts/fireworks/models/gpt-oss-120b"
-  strong_model: "accounts/fireworks/models/kimi-k2p5"
-  judge_model: "accounts/fireworks/models/gpt-oss-120b"
-  max_tokens_cheap: 400
-  max_tokens_strong: 600
-  max_tokens_judge: 96
+  # Defaults point at models actually deployed on the account; the judging
+  # harness overrides these via ALLOWED_MODELS. gpt-oss are reasoning models,
+  # so caps must leave room for hidden reasoning *plus* the final answer or the
+  # content channel comes back empty (finish_reason=length).
+  cheap_model: "accounts/fireworks/models/gpt-oss-20b"
+  strong_model: "accounts/fireworks/models/gpt-oss-120b"
+  judge_model: "accounts/fireworks/models/gpt-oss-20b"
+  max_tokens_cheap: 512
+  max_tokens_strong: 1024
+  max_tokens_judge: 256
   timeout_seconds: 60
   max_retries: 3
   # gpt-oss burns hidden reasoning tokens on every call; low effort keeps

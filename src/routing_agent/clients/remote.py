@@ -68,10 +68,7 @@ class FireworksClient:
         for key, value in self._config.extra_params.items():
             payload.setdefault(key, value)
         data = self._post_with_retries(payload)
-        try:
-            text = (data["choices"][0]["message"]["content"] or "").strip()
-        except (KeyError, IndexError, TypeError) as exc:
-            raise RemoteModelError(f"Malformed Fireworks response: {data!r:.200}") from exc
+        text = self._extract_text(data)
         usage = data.get("usage") or {}
         return GenerationResult(
             text=text,
@@ -90,8 +87,34 @@ class FireworksClient:
             system=_JUDGE_SYSTEM,
             model=self._config.judge_model,
         )
-        verdict = result.text.strip().upper().startswith("YES")
+        # Default to NO (which escalates) unless the grader clearly says YES:
+        # a truncated reasoning-model verdict must never be read as approval.
+        head = result.text.strip().upper()
+        verdict = head.startswith("YES") or head == "Y"
         return verdict, result
+
+    @staticmethod
+    def _extract_text(data: dict) -> str:
+        """Pull the answer out of a chat-completion, tolerating reasoning models.
+
+        gpt-oss / deepseek-r1 style models return their chain of thought in
+        `reasoning_content` and may leave `content` null or absent entirely when
+        the token budget truncates before the final channel. A missing key here
+        used to raise and be treated as a remote failure - which silently
+        collapsed the whole agent onto the weak local model. Never raise: an
+        empty string just fails the verifier and climbs one more rung.
+        """
+        choices = data.get("choices") or []
+        if not choices:
+            return ""
+        message = choices[0].get("message") or {}
+        content = message.get("content")
+        if content and content.strip():
+            return content.strip()
+        reasoning = message.get("reasoning_content")
+        if reasoning and reasoning.strip():
+            return reasoning.strip()
+        return ""
 
     def _post_with_retries(self, payload: dict) -> dict:
         last_error: Exception | None = None
