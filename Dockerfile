@@ -31,7 +31,12 @@ RUN mkdir -p src && pip install ".[all]"
 # re-download the 700MB model. Build with:
 #   docker build --build-arg MODEL_URL=https://.../gemma-3-1b-it-q4_0.gguf .
 ARG MODEL_URL=""
-RUN mkdir -p models && if [ -n "$MODEL_URL" ]; then \
+# Prefer a GGUF baked from the build context (see the .dockerignore exception);
+# fall back to MODEL_URL only when no local file was copied. Baking the local
+# copy sidesteps the gated-HuggingFace 401 (google/gemma-* needs a token).
+# The model[s] glob keeps COPY from erroring when the file is not in context.
+COPY model[s] ./models
+RUN mkdir -p models && if [ ! -f models/gemma-3-1b-it-q4_0.gguf ] && [ -n "$MODEL_URL" ]; then \
         curl -fSL --retry 3 -o models/gemma-3-1b-it-q4_0.gguf "$MODEL_URL"; \
     fi
 

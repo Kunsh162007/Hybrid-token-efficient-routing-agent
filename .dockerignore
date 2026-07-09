@@ -5,6 +5,10 @@ __pycache__
 .pytest_cache
 .ruff_cache
 models/
+# Exception: bake the already-downloaded GGUF into the image so the build does
+# not depend on a gated HuggingFace download (google/gemma-* returns 401 without
+# a token). The Dockerfile still falls back to MODEL_URL when this is absent.
+!models/gemma-3-1b-it-q4_0.gguf
 data/
 docs/
 tests/
