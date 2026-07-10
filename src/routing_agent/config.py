@@ -9,6 +9,7 @@ that bypass the injected base URL or use non-allowed models score zero).
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from pathlib import Path
@@ -16,11 +17,43 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, Field, field_validator
 
+logger = logging.getLogger(__name__)
+
 DEFAULT_CONFIG_PATH = "config.yaml"
 CONFIG_ENV_VAR = "ROUTING_AGENT_CONFIG"
 API_KEY_ENV_VAR = "FIREWORKS_API_KEY"
 BASE_URL_ENV_VAR = "FIREWORKS_BASE_URL"
 ALLOWED_MODELS_ENV_VAR = "ALLOWED_MODELS"
+APP_ROOT_ENV_VAR = "APP_ROOT"
+# Where the image installs config.yaml and models/ (the Dockerfile WORKDIR).
+_IMAGE_APP_ROOT = "/app"
+
+
+def resolve_resource(relative: str | Path) -> Path:
+    """Locate a bundled resource without depending on the working directory.
+
+    config.yaml and the GGUF are named by relative paths, which resolve
+    against the *process* CWD. A judging harness may start the container with
+    any working directory, and when it does both files vanish at once:
+    load_config() silently falls back to defaults and the local client reports
+    the model missing. With no FIREWORKS_API_KEY injected, that pair raises
+    ConfigError and every task ships an empty answer - a scored zero, produced
+    without a single ERROR log.
+
+    Relative paths are therefore searched against the CWD (dev boxes), then
+    $APP_ROOT, then the image WORKDIR. Absolute paths pass through untouched.
+    When nothing matches, the CWD-relative path is returned so failure
+    messages still name the path the caller asked for.
+    """
+    path = Path(relative)
+    if path.is_absolute():
+        return path
+    app_root = os.environ.get(APP_ROOT_ENV_VAR, "").strip() or "."
+    for root in (Path.cwd(), Path(app_root), Path(_IMAGE_APP_ROOT)):
+        candidate = root / path
+        if candidate.exists():
+            return candidate
+    return path
 
 
 class LocalModelConfig(BaseModel):
@@ -113,10 +146,17 @@ class ConfigError(Exception):
 
 def load_config(path: str | Path | None = None) -> AppConfig:
     """Load and validate config from YAML; fall back to defaults if absent."""
-    resolved = Path(path or os.environ.get(CONFIG_ENV_VAR, DEFAULT_CONFIG_PATH))
+    resolved = resolve_resource(path or os.environ.get(CONFIG_ENV_VAR, DEFAULT_CONFIG_PATH))
     if not resolved.exists():
         if path is not None:
             raise ConfigError(f"Config file not found: {resolved}")
+        # Defaults are *not* the tuned values (confidence_threshold, the
+        # per-type token caps): running on them quietly costs accuracy, so say
+        # so rather than letting a missing file look like a healthy start.
+        logger.warning(
+            "No config file at %s (cwd=%s); falling back to built-in defaults",
+            resolved, Path.cwd(),
+        )
         return _apply_env_overrides(AppConfig())
     try:
         raw = yaml.safe_load(resolved.read_text(encoding="utf-8")) or {}

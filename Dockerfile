@@ -52,7 +52,12 @@ COPY scripts/entrypoint.sh /entrypoint.sh
 # writable lets local `docker run -v` tests work identically.
 RUN chmod +x /entrypoint.sh && mkdir -p models data /input /output \
     && chmod -R 777 models data /input /output
-ENV HOME=/tmp
+# APP_ROOT anchors config.yaml and models/ so they resolve regardless of the
+# working directory the judging harness starts us in (a CWD-relative default
+# loses both at once, and the run then ships empty answers). Declared late so
+# it cannot invalidate the cached llama.cpp build or the baked model layer.
+ENV HOME=/tmp \
+    APP_ROOT=/app
 
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=120s \

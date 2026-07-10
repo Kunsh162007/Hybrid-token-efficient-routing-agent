@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 
 from routing_agent.clients.base import GenerationError, LocalModelUnavailable
-from routing_agent.config import LocalModelConfig
+from routing_agent.config import LocalModelConfig, resolve_resource
 from routing_agent.types import GenerationResult
 
 logger = logging.getLogger(__name__)
@@ -34,10 +34,12 @@ class LocalGemmaClient:
     def __init__(self, config: LocalModelConfig) -> None:
         if not config.enabled:
             raise LocalModelUnavailable("Local model disabled in config")
-        model_path = Path(config.model_path)
+        # Resolved against $APP_ROOT / the image WORKDIR, not just the CWD: a
+        # harness that starts us elsewhere must not silently lose the weights.
+        model_path = resolve_resource(config.model_path)
         if not model_path.exists():
             raise LocalModelUnavailable(
-                f"GGUF model not found at {model_path}. "
+                f"GGUF model not found at {model_path} (cwd={Path.cwd()}). "
                 "Download it first (see README) or set local.enabled: false."
             )
         try:

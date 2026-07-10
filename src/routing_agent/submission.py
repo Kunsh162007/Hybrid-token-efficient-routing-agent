@@ -156,7 +156,34 @@ def _build_harness_runtime(config_path: str | None) -> Runtime | None:
         return build_runtime(config=config)
     except Exception:
         logger.exception("Runtime construction failed")
+        _log_environment_diagnostics()
         return None
+
+
+def _log_environment_diagnostics() -> None:
+    """Explain *why* nothing can answer, before we ship a page of empty strings.
+
+    A failed runtime build is the one path that scores a guaranteed zero, and
+    its two causes (weights not found, API key not injected) are otherwise only
+    visible as WARNING lines above a traceback. Print the resolved state.
+    """
+    from routing_agent.config import LocalModelConfig, resolve_resource
+
+    try:
+        model_path = resolve_resource(load_config(None).local.model_path)
+    except Exception:  # the config itself is what broke; use the field default
+        model_path = resolve_resource(LocalModelConfig().model_path)
+    logger.critical(
+        "Nothing can answer tasks. cwd=%s APP_ROOT=%s model=%s exists=%s "
+        "FIREWORKS_API_KEY=%s FIREWORKS_BASE_URL=%s ALLOWED_MODELS=%s",
+        Path.cwd(),
+        os.environ.get("APP_ROOT", "<unset>"),
+        model_path,
+        model_path.exists(),
+        "set" if os.environ.get("FIREWORKS_API_KEY", "").strip() else "<unset>",
+        os.environ.get("FIREWORKS_BASE_URL", "<unset>"),
+        os.environ.get("ALLOWED_MODELS", "<unset>"),
+    )
 
 
 def _harness_config(config: AppConfig) -> AppConfig:

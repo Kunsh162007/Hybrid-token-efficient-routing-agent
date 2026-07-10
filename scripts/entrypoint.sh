@@ -4,7 +4,10 @@
 #   demo:    otherwise -> web dashboard
 set -eu
 
-MODEL_PATH="${MODEL_PATH:-models/gemma-3-1b-it-q4_0.gguf}"
+APP_ROOT="${APP_ROOT:-/app}"
+# Absolute, not CWD-relative: the harness may start us in any directory, and a
+# relative default silently loses the baked-in weights (-> empty answers).
+MODEL_PATH="${MODEL_PATH:-$APP_ROOT/models/gemma-3-1b-it-q4_0.gguf}"
 PORT="${PORT:-8000}"
 
 HARNESS=0
