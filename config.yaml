@@ -7,7 +7,9 @@ local:
   #   huggingface-cli download google/gemma-3-1b-it-qat-q4_0-gguf gemma-3-1b-it-q4_0.gguf --local-dir models/
   model_path: "models/gemma-3-1b-it-q4_0.gguf"
   n_ctx: 4096
-  n_threads: 0            # 0 = auto
+  # 0 = auto, resolved by clients/local.py from the cgroup CPU quota (NOT by
+  # llama.cpp, whose auto-detect sees host cores and ignores container limits).
+  n_threads: 0
   max_tokens: 512
   # Short-answer types get tight caps so generations finish fast; math keeps
   # room for chain-of-thought (local tokens are free, but time is not).

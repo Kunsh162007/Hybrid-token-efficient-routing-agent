@@ -232,9 +232,15 @@ class EscalationLadder:
         rejected: set[str],
     ) -> TaskResult | None:
         local_prompt = self._local_prompt(prompt, cls.task_type)
+        # Between-rung `_out_of_time` checks cannot stop a generation already in
+        # flight, and one CPU generation can outlast the whole cap on a 2-vCPU
+        # box. Hand every local call the same wall clock the rungs are judged by.
+        deadline = started + time_cap
 
         # Rung 1: first local attempt.
-        candidate = self._local_attempt(local_prompt, cls, trace, Rung.LOCAL_FIRST)
+        candidate = self._local_attempt(
+            local_prompt, cls, trace, Rung.LOCAL_FIRST, deadline=deadline
+        )
         if candidate is not None:
             candidates.append(candidate)
             if candidate.verified and candidate.confidence >= threshold:
@@ -252,6 +258,7 @@ class EscalationLadder:
         candidate = self._local_attempt(
             local_prompt + _RETRY_SUFFIX, cls, trace, Rung.LOCAL_RETRY,
             temperature=self._local_cfg.retry_temperature,
+            deadline=deadline,
         )
         if candidate is not None:
             candidates.append(candidate)
@@ -289,6 +296,7 @@ class EscalationLadder:
             candidate = self._local_attempt(
                 local_prompt, cls, trace, Rung.SELF_CONSISTENCY,
                 temperature=self._local_cfg.retry_temperature,
+                deadline=deadline,
             )
             if candidate is None:
                 break
@@ -542,6 +550,7 @@ class EscalationLadder:
         trace: list[RungTrace],
         rung: Rung,
         temperature: float | None = None,
+        deadline: float | None = None,
     ) -> _Candidate | None:
         try:
             result: GenerationResult = self._local.generate(
@@ -550,6 +559,7 @@ class EscalationLadder:
                 max_tokens=self._local_cfg.max_tokens_by_type.get(
                     str(cls.task_type), self._local_cfg.max_tokens
                 ),
+                deadline=deadline,
             )
         except GenerationError as exc:
             trace.append(RungTrace(rung, "local-error", str(exc)))
