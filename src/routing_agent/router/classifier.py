@@ -55,6 +55,23 @@ _LOGIC_WORDS = (
     "knights and knaves", "sits next to", "seated in", "is taller than",
     "satisfy all", "constraints:",
 )
+# The judged "logical / deductive reasoning" category is constraint puzzles, and
+# they rarely use any of the _LOGIC_WORDS phrases above: "Three friends each own
+# a different pet... Sam does not own the bird... Who owns the cat?" reads as a
+# plain question and used to route to QA, skipping the mandatory judge in
+# _JUDGE_REQUIRED_TYPES. Two of these three structural signals mark a puzzle.
+# One alone must not: "Who wrote Pride and Prejudice?" is an assignment question
+# and nothing more.
+_EACH_DIFFERENT = re.compile(r"\beach\b[^.?!]{0,60}\bdifferent\b")
+_NEGATED_FACT = re.compile(
+    r"\b(?:does not|doesn't|do not|don't|is not|isn't|are not|aren't"
+    r"|never|cannot|can't)\b"
+)
+_ASSIGNMENT_QUESTION = re.compile(
+    r"\bwho(?:se)?\b[^?]{0,80}\?"
+    r"|\bwhich\s+\w+\s+(?:owns|has|is|sits|lives|likes|prefers|drinks)\b"
+)
+
 _EXPLAIN_WORDS = (
     "explain", "describe", "in your own words", "how does", "why does",
     "what are the differences", "walk me through",
@@ -98,6 +115,9 @@ def _detect_type(prompt: str, lowered: str, signals: list[str]) -> TaskType:
     if any(word in lowered for word in _LOGIC_WORDS):
         signals.append("logic-keyword")
         return TaskType.LOGIC
+    if _looks_like_constraint_puzzle(lowered):
+        signals.append("constraint-puzzle")
+        return TaskType.LOGIC
     if _MATH_EXPR.search(prompt) or any(word in lowered for word in _MATH_WORDS):
         signals.append("math-signal")
         return TaskType.MATH
@@ -110,6 +130,17 @@ def _detect_type(prompt: str, lowered: str, signals: list[str]) -> TaskType:
         signals.append("question-mark")
         return TaskType.QA
     return TaskType.GENERAL
+
+
+def _looks_like_constraint_puzzle(lowered: str) -> bool:
+    """Two of three structural signals: 'each ... different', a negated fact,
+    and an assignment question. One alone is an ordinary question."""
+    hits = sum(
+        bool(pattern.search(lowered))
+        for pattern in (_EACH_DIFFERENT, _NEGATED_FACT, _ASSIGNMENT_QUESTION)
+    )
+    return hits >= 2
+
 
 # Baseline difficulty per type, calibrated for a 1-4B local model.
 _TYPE_BASE: dict[TaskType, float] = {

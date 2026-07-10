@@ -89,8 +89,12 @@ def finalize_answer(task_type: TaskType, text: str) -> str:
         norm = normalize(task_type, text)
         return norm if _NUMBER.fullmatch(norm) else extract_final(text)
     if task_type == TaskType.SENTIMENT:
-        norm = normalize(task_type, text)
-        return norm if norm in _SENTIMENT_LABELS else extract_final(text)
+        # Keep the justification. The judged category is "labelling sentiment
+        # AND justifying the classification", the local prompt explicitly asks
+        # for a one-sentence justification, and the scorer is an LLM judge
+        # grading against intent - so a bare "negative" throws away half the
+        # answer. Voting still runs on normalize()'s bare label, unchanged.
+        return extract_final(text)
     if task_type == TaskType.CODE:
         return normalize(task_type, text)  # the code block body, fences stripped
     # QA, LOGIC, SUMMARY, EXTRACTION, GENERAL: keep the prose but drop any

@@ -61,7 +61,13 @@ _LOCAL_INSTRUCTIONS: dict[TaskType, str] = {
         "Work through the constraints step by step, then end with "
         "'Answer: <answer>'."
     ),
-    TaskType.QA: "Reply with only the answer. End with 'Answer: <answer>'.",
+    # "Only the answer" cost us multi-part questions: "the capital of Australia,
+    # and what body of water is it near" answered "Canberra" and dropped the
+    # lake. The judge grades against intent, so every part must be answered.
+    TaskType.QA: (
+        "Answer every part of the question, concisely and without preamble. "
+        "End with 'Answer: <complete answer>'."
+    ),
     TaskType.GENERAL: "Reply concisely with only what was asked.",
 }
 # Appended (not prepended) so rungs 1-3 share an identical prompt prefix and
